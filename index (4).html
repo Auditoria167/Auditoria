@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DISAGRO - Auditoría</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .header { background: #2e7d32; color: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { margin: 0; }
+    .btn-salir { width: 80px; padding: 8px; background: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-salir:hover { background: #b71c1c; }
+    .badge { background: #fff; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 12px; }
+    #loginView { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .login-box { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 16px rgba(0,0,0,0.1); max-width: 450px; width: 100%; }
+    .login-box h1 { color: #2e7d32; text-align: center; margin-bottom: 30px; font-size: 32px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-weight: bold; color: #333; margin-bottom: 5px; }
+    input { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px; }
+    input:focus { outline: none; border-color: #2e7d32; }
+    button { width: 100%; padding: 12px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 16px; }
+    button:hover { background: #1b5e20; }
+    .creds { background: #f0f0f0; padding: 15px; border-radius: 4px; max-height: 250px; overflow-y: auto; font-size: 12px; margin-top: 20px; }
+    .cred-item { padding: 8px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; }
+    .cred-pass { background: #e8f5e9; padding: 2px 8px; border-radius: 3px; font-weight: bold; color: #2e7d32; }
+    #appView { display: none; }
+  </style>
+</head>
+<body>
+
+<div id="loginView">
+  <div class="login-box">
+    <h1>🟢 DISAGRO</h1>
+    
+    <div class="form-group">
+      <label>Tu nombre:</label>
+      <input type="text" id="usuario" placeholder="Ej: CANDIDA MELENDEZ">
+    </div>
+
+    <div class="form-group">
+      <label>Tu contraseña:</label>
+      <input type="password" id="password" placeholder="Ej: Can1">
+    </div>
+    
+    <button onclick="login()">INGRESAR</button>
+
+    <div class="creds">
+      <h4 style="margin: 0 0 10px 0; color: #333;">📋 USUARIOS</h4>
+      <div id="credsList"></div>
+    </div>
+  </div>
+</div>
+
+<div id="appView">
+  <div class="header">
+    <div>
+      <h1>DISAGRO Auditoría</h1>
+      <p style="margin-top: 5px;">Tienda: <strong id="tiendaDisplay">-</strong> <span id="rolBadge"></span></p>
+    </div>
+    <div style="display: flex; gap: 20px; align-items: center;">
+      <p style="color: white;">👤 <strong id="userDisplay">-</strong></p>
+      <button class="btn-salir" onclick="location.reload();">SALIR</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div style="background: white; padding: 25px; border-radius: 8px;">
+      <h2 style="color: #2e7d32; margin-bottom: 20px;">✅ ¡Bienvenido!</h2>
+      <p id="welcome"></p>
+      <p style="margin-top: 15px; color: #666;">La app está funcionando correctamente desde GitHub Pages.</p>
+      <p style="margin-top: 15px; color: #666;">Próximamente: Dashboard, nuevas auditorías y reportes.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const USUARIOS = [
+  {nombre:"CANDIDA MELENDEZ",tienda:"TEGUCIGALPA",pass:"Can1"},
+  {nombre:"DARIELA GARCIA",tienda:"SAN LORENZO",pass:"Dar2"},
+  {nombre:"VICTOR VALECILLO",tienda:"DANLÍ",pass:"Vic3"},
+  {nombre:"LISVETH HERDANDEZ",tienda:"EL PROGRESO",pass:"Lis4"},
+  {nombre:"BIANCA SALMERON",tienda:"SANTA BÁRBARA",pass:"Bia5"},
+  {nombre:"KELVIN CHACON",tienda:"TOCOA",pass:"Kel6"},
+  {nombre:"KAROL CALIX",tienda:"LA ESPERANZA",pass:"Kar7"},
+  {nombre:"ANGELICA VINDEL",tienda:"OCOTEPEQUE",pass:"Ang8"},
+  {nombre:"EVER CASTILLO",tienda:"CEDI SAN PEDRO SULA",pass:"Eve9"},
+  {nombre:"MARIA JOSE FIGUEROA",tienda:"CEDI COMAYAGUA",pass:"Mar0"},
+  {nombre:"EDDY FUNEZ",tienda:"CEDI SAN LORENZO",pass:"Edd1"},
+  {nombre:"CARLOS CARDENAS",tienda:"TEGUCIGALPA",pass:"Car2"},
+  {nombre:"RAMON SORIANO",tienda:"SAN LORENZO",pass:"Ram3"},
+  {nombre:"CARLOS AYALA",tienda:"DANLÍ",pass:"Car4"},
+  {nombre:"KENER VALERIANO",tienda:"EL PROGRESO",pass:"Ken5"},
+  {nombre:"OVERLIN LEIVA",tienda:"SANTA BÁRBARA",pass:"Ove6"},
+  {nombre:"HENRY ARTIAGA",tienda:"TOCOA",pass:"Hen7"},
+  {nombre:"SELVIN FLORES",tienda:"LA ESPERANZA",pass:"Sel8"},
+  {nombre:"LUIS ALONZO VARGAS",tienda:"OCOTEPEQUE",pass:"Lui9"},
+  {nombre:"SAUL MEJIA",tienda:"CEDI COMAYAGUA",pass:"Sau0"},
+  {nombre:"NELSON LETONA",tienda:"CEDI COMAYAGUA",pass:"Nel1"},
+  {nombre:"JOSE GARCIA",tienda:"CEDI SAN LORENZO",pass:"Jos2"},
+  {nombre:"CINTHIA TROCHEZ",tienda:"TEGUCIGALPA",pass:"Cin9",sup:1},
+  {nombre:"MIGUEL MAYORQUIN",tienda:"TEGUCIGALPA",pass:"Mig9",sup:1},
+  {nombre:"ERIKA MENDIETA",tienda:"TEGUCIGALPA",pass:"Eri9",sup:1},
+  {nombre:"JAIME SOSA",tienda:"TEGUCIGALPA",pass:"Jai9",sup:1}
+];
+
+function init() {
+  let html = '';
+  USUARIOS.forEach(u => {
+    html += '<div class="cred-item"><span>'+u.nombre+'</span><span class="cred-pass">'+u.pass+'</span></div>';
+  });
+  document.getElementById('credsList').innerHTML = html;
+}
+
+function login() {
+  const nombre = document.getElementById('usuario').value.toUpperCase().trim();
+  const pass = document.getElementById('password').value.trim();
+  
+  if(!nombre || !pass) {
+    alert('Escribe nombre y contraseña');
+    return;
+  }
+  
+  const u = USUARIOS.find(x => x.nombre === nombre && x.pass === pass);
+  if(!u) {
+    alert('Usuario o contraseña incorrectos');
+    return;
+  }
+  
+  document.getElementById('loginView').style.display = 'none';
+  document.getElementById('appView').style.display = 'block';
+  document.getElementById('userDisplay').textContent = u.nombre;
+  document.getElementById('tiendaDisplay').textContent = u.tienda;
+  document.getElementById('welcome').textContent = 'Hola '+u.nombre+', bienvenido a DISAGRO Auditoría. Tienda: '+u.tienda;
+  
+  if(u.sup) {
+    document.getElementById('rolBadge').innerHTML = '<span class="badge">👨‍💼 SUPERVISOR</span>';
+  } else {
+    document.getElementById('rolBadge').innerHTML = '<span class="badge">👤 OPERARIO</span>';
+  }
+}
+
+document.getElementById('password').addEventListener('keypress', function(e) {
+  if(e.key === 'Enter') login();
+});
+
+init();
+</script>
+
+</body>
+</html>
