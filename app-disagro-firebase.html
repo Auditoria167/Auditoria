@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DISAGRO - Auditoría en Tiempo Real</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { background: #2e7d32; color: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .header h1 { margin: 0 0 10px; font-size: 28px; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+    .top-bar p { margin: 0; font-weight: 500; }
+    .btn-salir { width: 80px; padding: 8px; background: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-salir:hover { background: #b71c1c; }
+    .badge-super { background: #2e7d32; color: white; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: 10px; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; }
+    .tab-btn { padding: 12px 20px; background: transparent; border: none; cursor: pointer; font-weight: bold; color: #666; border-bottom: 3px solid transparent; }
+    .tab-btn.active { color: #2e7d32; border-bottom-color: #2e7d32; }
+    .tab { display: none; }
+    .tab.active { display: block; }
+    .section { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .section h2 { color: #2e7d32; margin-bottom: 15px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-weight: bold; color: #333; margin-bottom: 5px; }
+    input, select, textarea { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #2e7d32; }
+    button { padding: 12px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+    button:hover { background: #1b5e20; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th { background: #2e7d32; color: white; padding: 12px; text-align: left; }
+    td { padding: 12px; border-bottom: 1px solid #ddd; }
+    tr:hover { background: #f9f9f9; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .stat { background: #e8f5e9; padding: 20px; border-radius: 8px; text-align: center; }
+    .stat-num { font-size: 32px; font-weight: bold; color: #2e7d32; }
+    .stat-label { color: #666; font-size: 14px; margin-top: 5px; }
+    .item-box { background: #f9f9f9; padding: 15px; border-radius: 6px; border-left: 4px solid #2e7d32; margin-bottom: 15px; }
+    .item-check { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+    .item-check input { flex: 0 0 20px; cursor: pointer; }
+    .loading { text-align: center; color: #2e7d32; font-weight: bold; padding: 20px; }
+    .error { background: #ffebee; color: #c62828; padding: 15px; border-radius: 4px; margin-bottom: 15px; }
+    .success { background: #e8f5e9; color: #2e7d32; padding: 15px; border-radius: 4px; margin-bottom: 15px; }
+  </style>
+</head>
+<body>
+
+<div id="loginView" style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f5;">
+  <div style="background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 16px rgba(0,0,0,0.1); max-width: 500px; width: 100%;">
+    <h1 style="color: #2e7d32; text-align: center; margin-bottom: 30px;">🟢 DISAGRO</h1>
+    <h3 style="text-align: center; color: #666; margin-bottom: 30px;">Sistema de Auditoría en Tiempo Real</h3>
+    
+    <div class="form-group">
+      <label>Tu nombre:</label>
+      <input type="text" id="usuario" placeholder="">
+    </div>
+
+    <div class="form-group">
+      <label>Tu contraseña:</label>
+      <input type="password" id="password" placeholder="">
+    </div>
+    
+    <button onclick="entrar()" style="width: 100%; margin-bottom: 20px;">INGRESAR</button>
+
+    <div style="background: #f0f0f0; padding: 15px; border-radius: 4px; max-height: 300px; overflow-y: auto;">
+      <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 14px;">📋 USUARIOS Y CONTRASEÑAS</h3>
+      <div id="credsList" style="font-size: 12px;"></div>
+    </div>
+  </div>
+</div>
+
+<div id="appView" style="display: none;">
+  <div class="top-bar">
+    <div>
+      <p>Tienda: <span id="tiendaDisplay">-</span> <span id="rolBadge"></span></p>
+    </div>
+    <button class="btn-salir" onclick="location.reload();">SALIR</button>
+  </div>
+
+  <div class="header">
+    <h1>DISAGRO - Auditoría</h1>
+    <p id="userDisplay" style="margin: 0; font-size: 14px; opacity: 0.9;">Usuario: -</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('dashboard', event)">Dashboard</button>
+    <button class="tab-btn" onclick="showTab('auditoria', event)">Nueva Auditoría</button>
+    <button class="tab-btn" onclick="showTab('reportes', event)">Reportes</button>
+  </div>
+
+  <div id="dashboard" class="tab active">
+    <div class="section">
+      <h2>Estadísticas</h2>
+      <div class="stats" id="stats">
+        <div class="stat"><div class="stat-num">0</div><div class="stat-label">Total</div></div>
+        <div class="stat"><div class="stat-num">0%</div><div class="stat-label">Promedio</div></div>
+      </div>
+      <table>
+        <thead>
+          <tr id="tableHeader"><th>Checklist</th><th>Fecha</th><th>%</th></tr>
+        </thead>
+        <tbody id="dashTable"><tr><td colspan="4">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="auditoria" class="tab">
+    <div class="section">
+      <h2>Nueva Auditoría</h2>
+      <div class="form-group">
+        <label>Selecciona un checklist:</label>
+        <select id="selectChecklist" onchange="cargarChecklist()">
+          <option value="">-- Elige checklist --</option>
+          <option value="Mantenimiento Generador">Mantenimiento Generador</option>
+          <option value="Bitácora Generador Diaria">Bitácora Generador Diaria</option>
+          <option value="Mantenimiento Portapalets">Mantenimiento Portapalets</option>
+          <option value="Mantenimiento Tarimas">Mantenimiento Tarimas</option>
+          <option value="Ducha Emergencia">Ducha Emergencia</option>
+          <option value="Aires Acondicionados">Aires Acondicionados</option>
+          <option value="Bitácora Montacargas">Bitácora Montacargas</option>
+          <option value="Verificación Montacargas">Verificación Montacargas</option>
+          <option value="Inspección Señalización">Inspección Señalización</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Fecha:</label>
+        <input type="datetime-local" id="fechaAudit">
+      </div>
+    </div>
+    <div id="itemsDiv"></div>
+  </div>
+
+  <div id="reportes" class="tab">
+    <div class="section">
+      <h2>Auditorías Registradas</h2>
+      <table>
+        <thead>
+          <tr id="reportHeader"><th>Checklist</th><th>Fecha</th><th>%</th></tr>
+        </thead>
+        <tbody id="reportTable"><tr><td colspan="4">Cargando...</td></tr></tbody>
+      </table>
+      <button onclick="descargarExcel()" style="margin-top: 15px; width: 100%;">Descargar Excel</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js"></script>
+
+<script>
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyAVKpxu4d_XddW1WFNa0vayV5TfUFHHAyc",
+  authDomain: "auditoria-bec10.firebaseapp.com",
+  databaseURL: "https://auditoria-bec10-default-rtdb.firebaseio.com",
+  projectId: "auditoria-bec10",
+  storageBucket: "auditoria-bec10.appspot.com",
+  messagingSenderId: "834994506141",
+  appId: "1:834994506141:web:8245fdf93e90e186b4c774"
+};
+
+// Initialize Firebase
+const app = firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+const USUARIOS = [
+  {nombre:"CANDIDA MELENDEZ",tienda:"TEGUCIGALPA",pass:"Can1"},
+  {nombre:"DARIELA GARCIA",tienda:"SAN LORENZO",pass:"Dar2"},
+  {nombre:"VICTOR VALECILLO",tienda:"DANLÍ",pass:"Vic3"},
+  {nombre:"LISVETH HERDANDEZ",tienda:"EL PROGRESO",pass:"Lis4"},
+  {nombre:"BIANCA SALMERON",tienda:"SANTA BÁRBARA",pass:"Bia5"},
+  {nombre:"KELVIN CHACON",tienda:"TOCOA",pass:"Kel6"},
+  {nombre:"KAROL CALIX",tienda:"LA ESPERANZA",pass:"Kar7"},
+  {nombre:"ANGELICA VINDEL",tienda:"OCOTEPEQUE",pass:"Ang8"},
+  {nombre:"EVER CASTILLO",tienda:"CEDI SAN PEDRO SULA",pass:"Eve9"},
+  {nombre:"MARIA JOSE FIGUEROA",tienda:"CEDI COMAYAGUA",pass:"Mar0"},
+  {nombre:"EDDY FUNEZ",tienda:"CEDI SAN LORENZO",pass:"Edd1"},
+  {nombre:"CARLOS CARDENAS",tienda:"TEGUCIGALPA",pass:"Car2"},
+  {nombre:"RAMON SORIANO",tienda:"SAN LORENZO",pass:"Ram3"},
+  {nombre:"CARLOS AYALA",tienda:"DANLÍ",pass:"Car4"},
+  {nombre:"KENER VALERIANO",tienda:"EL PROGRESO",pass:"Ken5"},
+  {nombre:"OVERLIN LEIVA",tienda:"SANTA BÁRBARA",pass:"Ove6"},
+  {nombre:"HENRY ARTIAGA",tienda:"TOCOA",pass:"Hen7"},
+  {nombre:"SELVIN FLORES",tienda:"LA ESPERANZA",pass:"Sel8"},
+  {nombre:"LUIS ALONZO VARGAS",tienda:"OCOTEPEQUE",pass:"Lui9"},
+  {nombre:"SAUL MEJIA",tienda:"CEDI COMAYAGUA",pass:"Sau0"},
+  {nombre:"NELSON LETONA",tienda:"CEDI COMAYAGUA",pass:"Nel1"},
+  {nombre:"JOSE GARCIA",tienda:"CEDI SAN LORENZO",pass:"Jos2"},
+  {nombre:"CINTHIA TROCHEZ",tienda:"TEGUCIGALPA",pass:"Cin9",sup:1},
+  {nombre:"MIGUEL MAYORQUIN",tienda:"TEGUCIGALPA",pass:"Mig9",sup:1},
+  {nombre:"ERIKA MENDIETA",tienda:"TEGUCIGALPA",pass:"Eri9",sup:1},
+  {nombre:"JAIME SOSA",tienda:"TEGUCIGALPA",pass:"Jai9",sup:1}
+];
+
+const CHECKLISTS = {
+  "Mantenimiento Generador": ["Nivel combustible","Cuerda arranque","Arrancador","Batería","Refrigeración","Tablero control"],
+  "Bitácora Generador Diaria": ["Arranque equipo","Nivel combustible","Estado batería"],
+  "Mantenimiento Portapalets": ["Timón","Ruedas","Freno mano"],
+  "Mantenimiento Tarimas": ["Tablas completas","Rajaduras"],
+  "Ducha Emergencia": ["Limpieza","Señalización"],
+  "Aires Acondicionados": ["Filtros","Temperatura"],
+  "Bitácora Montacargas": ["Arranque","Luces"],
+  "Verificación Montacargas": ["Ruedas","Frenos"],
+  "Inspección Señalización": ["Visibilidad","Colores"]
+};
+
+let usuario = null;
+
+function init() {
+  document.getElementById('fechaAudit').valueAsDate = new Date();
+  
+  let html = '';
+  USUARIOS.forEach(u => {
+    html += '<div style="padding: 8px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between;"><span>'+u.nombre+'</span><span style="background: #e8f5e9; padding: 2px 8px; border-radius: 3px; font-weight: bold; color: #2e7d32;">'+u.pass+'</span></div>';
+  });
+  document.getElementById('credsList').innerHTML = html;
+}
+
+function entrar() {
+  const nombre = document.getElementById('usuario').value.toUpperCase();
+  const pass = document.getElementById('password').value;
+  
+  if(!nombre) { alert('Escribe tu nombre'); return; }
+  if(!pass) { alert('Escribe tu contraseña'); return; }
+  
+  const u = USUARIOS.find(x => x.nombre === nombre);
+  if(!u) { alert('Nombre no encontrado'); return; }
+  if(u.pass !== pass) { alert('Contraseña incorrecta'); return; }
+  
+  usuario = u;
+  localStorage.setItem('usuarioLogged', JSON.stringify(u));
+  mostrarApp();
+}
+
+function mostrarApp() {
+  document.getElementById('loginView').style.display = 'none';
+  document.getElementById('appView').style.display = 'block';
+  document.getElementById('userDisplay').textContent = 'Usuario: '+usuario.nombre;
+  document.getElementById('tiendaDisplay').textContent = usuario.tienda;
+  
+  if(usuario.sup) {
+    document.getElementById('rolBadge').innerHTML = '<span class="badge-super">SUPERVISOR</span>';
+    document.getElementById('tableHeader').innerHTML = '<th>Usuario</th><th>Tienda</th><th>Checklist</th><th>Fecha</th><th>%</th>';
+    document.getElementById('reportHeader').innerHTML = '<th>Usuario</th><th>Tienda</th><th>Checklist</th><th>Fecha</th><th>%</th>';
+  }
+  
+  cargarDatos();
+}
+
+function cargarDatos() {
+  database.ref('auditorias').on('value', function(snapshot) {
+    const auditorias = [];
+    snapshot.forEach(function(childSnapshot) {
+      auditorias.push(childSnapshot.val());
+    });
+    actualizar(auditorias);
+  });
+}
+
+function cargarChecklist() {
+  const name = document.getElementById('selectChecklist').value;
+  if(!name) {
+    document.getElementById('itemsDiv').innerHTML = '';
+    return;
+  }
+  
+  const items = CHECKLISTS[name];
+  if(!items) return;
+  
+  let html = '<div class="section"><h2>'+name+'</h2><p style="color:#666; font-size:12px;">Items: '+items.length+'</p>';
+  
+  items.forEach((item,i) => {
+    html += '<div class="item-box"><div class="item-check"><input type="checkbox" id="item'+i+'"> <span>'+item+'</span></div></div>';
+  });
+  
+  html += '<div class="section"><label style="font-weight:bold;">Observaciones finales:</label><textarea id="obsFinales" placeholder=""></textarea>';
+  html += '<button onclick="guardarAuditoria()">GUARDAR AUDITORÍA</button></div>';
+  
+  document.getElementById('itemsDiv').innerHTML = html;
+}
+
+function guardarAuditoria() {
+  const name = document.getElementById('selectChecklist').value;
+  const fecha = document.getElementById('fechaAudit').value;
+  const items = CHECKLISTS[name];
+  
+  if(!name) { alert('Selecciona checklist'); return; }
+  
+  const checked = Array.from({length: items.length}).filter((_, i) => document.getElementById('item'+i).checked).length;
+  const pct = Math.round((checked / items.length) * 100);
+  
+  const auditId = 'audit_' + Date.now();
+  
+  database.ref('auditorias/' + auditId).set({
+    usuario: usuario.nombre,
+    tienda: usuario.tienda,
+    checklist: name,
+    fecha: fecha,
+    porcentaje: pct,
+    obs: document.getElementById('obsFinales').value,
+    timestamp: new Date().getTime()
+  }).then(() => {
+    alert('✓ Auditoría guardada en tiempo real');
+    document.getElementById('selectChecklist').value = '';
+    document.getElementById('itemsDiv').innerHTML = '';
+  }).catch(err => alert('Error: ' + err.message));
+}
+
+function actualizar(auditorias) {
+  let auditoriasParaMostrar = auditorias;
+  
+  if(!usuario.sup) {
+    auditoriasParaMostrar = auditorias.filter(a => a.usuario === usuario.nombre);
+  }
+  
+  const prom = auditoriasParaMostrar.length > 0 ? Math.round(auditoriasParaMostrar.reduce((s,a) => s+a.porcentaje, 0)/auditoriasParaMostrar.length) : 0;
+  
+  document.getElementById('stats').innerHTML = '<div class="stat"><div class="stat-num">'+auditoriasParaMostrar.length+'</div><div class="stat-label">Total</div></div><div class="stat"><div class="stat-num">'+prom+'%</div><div class="stat-label">Promedio</div></div>';
+  
+  let tabla = '';
+  
+  if(usuario.sup) {
+    tabla = auditoriasParaMostrar.map(a => '<tr><td>'+a.usuario+'</td><td>'+a.tienda+'</td><td>'+a.checklist+'</td><td>'+(a.fecha ? a.fecha.split('T')[0] : '-')+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
+  } else {
+    tabla = auditoriasParaMostrar.map(a => '<tr><td>'+a.checklist+'</td><td>'+(a.fecha ? a.fecha.split('T')[0] : '-')+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
+  }
+  
+  if(!tabla) tabla = '<tr><td colspan="5">Sin auditorías</td></tr>';
+  
+  document.getElementById('dashTable').innerHTML = tabla;
+  document.getElementById('reportTable').innerHTML = tabla;
+}
+
+function showTab(tab, event) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(tab).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function descargarExcel() {
+  database.ref('auditorias').once('value', function(snapshot) {
+    let auditorias = [];
+    snapshot.forEach(function(childSnapshot) {
+      auditorias.push(childSnapshot.val());
+    });
+    
+    if(!usuario.sup) {
+      auditorias = auditorias.filter(a => a.usuario === usuario.nombre);
+    }
+    
+    let csv;
+    if(usuario.sup) {
+      csv = 'Usuario,Tienda,Checklist,Fecha,Porcentaje\n';
+      auditorias.forEach(a => {
+        csv += '"'+a.usuario+'","'+a.tienda+'","'+a.checklist+'","'+(a.fecha ? a.fecha.split('T')[0] : '-')+'","'+a.porcentaje+'%"\n';
+      });
+    } else {
+      csv = 'Checklist,Fecha,Porcentaje\n';
+      auditorias.forEach(a => {
+        csv += '"'+a.checklist+'","'+(a.fecha ? a.fecha.split('T')[0] : '-')+'","'+a.porcentaje+'%"\n';
+      });
+    }
+    
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'auditoria_'+usuario.nombre.replace(/ /g,'_')+'.csv';
+    a.click();
+  });
+}
+
+init();
+</script>
+
+</body>
+</html>
