@@ -82,7 +82,7 @@
     </div>
     <div class="header-info">
       <p>👤 <strong id="userDisplay">-</strong></p>
-      <button class="btn-salir" onclick="location.reload();">SALIR</button>
+      <button class="btn-salir" onclick="app.logout();">SALIR</button>
     </div>
   </div>
 
@@ -150,7 +150,7 @@
         <h2>Reportes</h2>
         <div class="filters">
           <label>Filtrar por tienda:</label>
-          <select id="filtroTienda" onchange="app.actualizarTablas()">
+          <select id="filtroTienda" onchange="app.actualizarReportes()">
             <option value="">Todas</option>
           </select>
         </div>
@@ -221,6 +221,7 @@ const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwcIfEPGy1y4udPS-tXI
 const app = {
   usuario: null,
   datos: [],
+  cargando: false,
   
   init: function() {
     document.getElementById('fechaAudit').valueAsDate = new Date();
@@ -229,7 +230,18 @@ const app = {
       html += '<div class="cred-item">✓ '+u.nombre+' ('+u.tienda+')</div>';
     });
     document.getElementById('credsList').innerHTML = html;
-    this.cargarDatos();
+    
+    // REVISAR SI HAY SESIÓN GUARDADA
+    const usuarioGuardado = sessionStorage.getItem('usuarioLogueado');
+    if(usuarioGuardado) {
+      try {
+        this.usuario = JSON.parse(usuarioGuardado);
+        this.mostrarApp();
+        this.cargarDatos();
+      } catch(e) {
+        // Si hay error, mostrar login
+      }
+    }
   },
   
   login: function() {
@@ -242,62 +254,82 @@ const app = {
     if(!u) { alert('Usuario o contraseña incorrectos'); return; }
     
     this.usuario = u;
+    
+    // GUARDAR SESIÓN
+    sessionStorage.setItem('usuarioLogueado', JSON.stringify(u));
+    
+    this.mostrarApp();
+    this.cargarDatos();
+  },
+  
+  mostrarApp: function() {
     document.getElementById('loginView').style.display = 'none';
     document.getElementById('appView').style.display = 'block';
-    document.getElementById('userDisplay').textContent = u.nombre;
-    document.getElementById('tiendaDisplay').textContent = u.tienda;
+    document.getElementById('userDisplay').textContent = this.usuario.nombre;
+    document.getElementById('tiendaDisplay').textContent = this.usuario.tienda;
     
-    if(u.sup) {
+    if(this.usuario.sup) {
       document.getElementById('rolBadge').innerHTML = '<span class="badge">👨‍💼 SUPERVISOR</span>';
       document.getElementById('tableHeader').innerHTML = '<th>Usuario</th><th>Tienda</th><th>Checklist</th><th>Fecha</th><th>%</th>';
       document.getElementById('reportHeader').innerHTML = '<th>Usuario</th><th>Tienda</th><th>Checklist</th><th>Fecha</th><th>%</th>';
     }
-    
-    this.cargarDatos();
+  },
+  
+  logout: function() {
+    // BORRAR SESIÓN
+    sessionStorage.removeItem('usuarioLogueado');
+    this.usuario = null;
+    this.datos = [];
+    document.getElementById('loginView').style.display = 'flex';
+    document.getElementById('appView').style.display = 'none';
+    document.getElementById('usuario').value = '';
+    document.getElementById('password').value = '';
   },
   
   cargarDatos: function() {
+    if(this.cargando) return;
+    this.cargando = true;
+    
     fetch(SHEETS_URL)
       .then(r => r.json())
       .then(datos => {
-        this.datos = datos;
-        this.actualizarTablas();
+        this.datos = datos || [];
+        this.cargando = false;
+        this.actualizarDashboard();
       })
       .catch(e => {
-        console.error('Error cargando:', e);
-        this.actualizarTablas();
+        console.error('Error:', e);
+        this.cargando = false;
+        this.actualizarDashboard();
       });
   },
   
-  actualizarTablas: function() {
-    const filtro = document.getElementById('filtroTienda')?.value || "";
+  actualizarDashboard: function() {
     let datos = this.datos.slice();
     
-    if(this.usuario && !this.usuario.sup) {
+    if(!this.usuario.sup) {
       datos = datos.filter(a => a.usuario === this.usuario.nombre);
-    } else if(filtro) {
-      datos = datos.filter(a => a.tienda === filtro);
     }
     
-    const prom = datos.length > 0 ? Math.round(datos.reduce((s,a) => s+parseInt(a.porcentaje), 0)/datos.length) : 0;
+    const prom = datos.length > 0 ? Math.round(datos.reduce((s,a) => s+parseInt(a.porcentaje||0), 0)/datos.length) : 0;
     const tiendas = new Set(this.datos.map(a => a.tienda)).size;
     
     document.getElementById('stats').innerHTML = 
-      '<div class="stat"><div class="stat-num">'+datos.length+'</div><div class="stat-label">Auditorías</div></div>' +
+      '<div class="stat"><div class="stat-num">'+this.datos.length+'</div><div class="stat-label">Total Auditorías</div></div>' +
       '<div class="stat"><div class="stat-num">'+prom+'%</div><div class="stat-label">Promedio</div></div>' +
       '<div class="stat"><div class="stat-num">'+tiendas+'</div><div class="stat-label">Tiendas</div></div>';
     
     let tabla = '';
-    if(this.usuario && this.usuario.sup) {
+    if(this.usuario.sup) {
       tabla = datos.map(a => '<tr><td>'+a.usuario+'</td><td>'+a.tienda+'</td><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
     } else {
       tabla = datos.map(a => '<tr><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
     }
     
-    if(!tabla) tabla = '<tr><td colspan="5" class="loading">Sin auditorías aún</td></tr>';
+    if(!tabla) tabla = '<tr><td colspan="5" class="loading">Sin auditorías</td></tr>';
     document.getElementById('dashTable').innerHTML = tabla;
-    document.getElementById('reportTable').innerHTML = tabla;
     
+    // Actualizar filtros
     let tiendas_arr = new Set();
     if(this.usuario.sup) {
       this.datos.forEach(a => tiendas_arr.add(a.tienda));
@@ -305,10 +337,31 @@ const app = {
       tiendas_arr.add(this.usuario.tienda);
     }
     
-    let html = '<label>Filtrar por tienda:</label><select id="filtroTienda" onchange="app.actualizarTablas()"><option value="">Todas</option>';
+    let html = '<label>Filtrar por tienda:</label><select id="filtroTienda" onchange="app.actualizarReportes()"><option value="">Todas</option>';
     tiendas_arr.forEach(t => { html += '<option value="'+t+'">'+t+'</option>'; });
     html += '</select>';
     document.getElementById('filtersDiv').innerHTML = html;
+  },
+  
+  actualizarReportes: function() {
+    const filtro = document.getElementById('filtroTienda')?.value || "";
+    let datos = this.datos.slice();
+    
+    if(!this.usuario.sup) {
+      datos = datos.filter(a => a.usuario === this.usuario.nombre);
+    } else if(filtro) {
+      datos = datos.filter(a => a.tienda === filtro);
+    }
+    
+    let tabla = '';
+    if(this.usuario.sup) {
+      tabla = datos.map(a => '<tr><td>'+a.usuario+'</td><td>'+a.tienda+'</td><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
+    } else {
+      tabla = datos.map(a => '<tr><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
+    }
+    
+    if(!tabla) tabla = '<tr><td colspan="5" class="loading">Sin reportes</td></tr>';
+    document.getElementById('reportTable').innerHTML = tabla;
   },
   
   cargarChecklist: function() {
@@ -354,13 +407,11 @@ const app = {
     })
     .then(r => r.json())
     .then(res => {
-      if(res.success) {
-        alert('✅ AUDITORÍA GUARDADA EN GOOGLE SHEETS\n\n'+name+'\nFecha: '+data.fecha+'\nCompleted: '+pct+'%\n\n¡VISIBLE EN TODOS LOS TELÉFONOS!');
-        document.getElementById('selectChecklist').value = '';
-        document.getElementById('itemsDiv').innerHTML = '';
-        document.getElementById('fechaAudit').valueAsDate = new Date();
-        setTimeout(() => this.cargarDatos(), 1000);
-      }
+      alert('✅ AUDITORÍA GUARDADA\n'+name+'\n'+data.fecha+'\n'+pct+'%');
+      document.getElementById('selectChecklist').value = '';
+      document.getElementById('itemsDiv').innerHTML = '';
+      document.getElementById('fechaAudit').valueAsDate = new Date();
+      setTimeout(() => this.cargarDatos(), 1000);
     })
     .catch(e => {
       alert('❌ Error: '+e.message);
@@ -372,6 +423,7 @@ const app = {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(tab).classList.add('active');
     event.target.classList.add('active');
+    
     if(tab === 'dashboard' || tab === 'reportes') {
       this.cargarDatos();
     }
@@ -387,18 +439,10 @@ const app = {
       datos = datos.filter(a => a.tienda === filtro);
     }
     
-    let csv;
-    if(this.usuario.sup) {
-      csv = 'Usuario,Tienda,Checklist,Fecha,Porcentaje\n';
-      datos.forEach(a => {
-        csv += '"'+a.usuario+'","'+a.tienda+'","'+a.checklist+'","'+a.fecha+'","'+a.porcentaje+'%"\n';
-      });
-    } else {
-      csv = 'Checklist,Fecha,Porcentaje\n';
-      datos.forEach(a => {
-        csv += '"'+a.checklist+'","'+a.fecha+'","'+a.porcentaje+'%"\n';
-      });
-    }
+    let csv = 'Usuario,Tienda,Checklist,Fecha,Porcentaje,Observaciones\n';
+    datos.forEach(a => {
+      csv += '"'+a.usuario+'","'+a.tienda+'","'+a.checklist+'","'+a.fecha+'","'+a.porcentaje+'%","'+a.obs+'"\n';
+    });
     
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
     const link = document.createElement('a');
@@ -411,10 +455,10 @@ const app = {
 
 app.init();
 
-// Recargar datos cada 30 segundos
+// Recargar cada 20 segundos
 setInterval(() => {
   if(app.usuario) app.cargarDatos();
-}, 30000);
+}, 20000);
 </script>
 
 </body>
