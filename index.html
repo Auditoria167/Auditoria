@@ -139,7 +139,7 @@
         </div>
         <div class="form-group">
           <label>Fecha:</label>
-          <input type="datetime-local" id="fechaAudit">
+          <input type="date" id="fechaAudit">
         </div>
       </div>
       <div id="itemsDiv"></div>
@@ -224,23 +224,23 @@ const app = {
   cargando: false,
   
   init: function() {
-    document.getElementById('fechaAudit').valueAsDate = new Date();
+    // Usar TODAY en lugar de valueAsDate
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fechaAudit').value = today;
+    
     let html = '';
     USUARIOS.forEach(u => {
       html += '<div class="cred-item">✓ '+u.nombre+' ('+u.tienda+')</div>';
     });
     document.getElementById('credsList').innerHTML = html;
     
-    // REVISAR SI HAY SESIÓN GUARDADA
     const usuarioGuardado = sessionStorage.getItem('usuarioLogueado');
     if(usuarioGuardado) {
       try {
         this.usuario = JSON.parse(usuarioGuardado);
         this.mostrarApp();
         this.cargarDatos();
-      } catch(e) {
-        // Si hay error, mostrar login
-      }
+      } catch(e) {}
     }
   },
   
@@ -254,10 +254,7 @@ const app = {
     if(!u) { alert('Usuario o contraseña incorrectos'); return; }
     
     this.usuario = u;
-    
-    // GUARDAR SESIÓN
     sessionStorage.setItem('usuarioLogueado', JSON.stringify(u));
-    
     this.mostrarApp();
     this.cargarDatos();
   },
@@ -276,7 +273,6 @@ const app = {
   },
   
   logout: function() {
-    // BORRAR SESIÓN
     sessionStorage.removeItem('usuarioLogueado');
     this.usuario = null;
     this.datos = [];
@@ -293,7 +289,7 @@ const app = {
     fetch(SHEETS_URL)
       .then(r => r.json())
       .then(datos => {
-        this.datos = datos || [];
+        this.datos = Array.isArray(datos) ? datos : [];
         this.cargando = false;
         this.actualizarDashboard();
       })
@@ -321,7 +317,7 @@ const app = {
     
     let tabla = '';
     if(this.usuario.sup) {
-      tabla = datos.map(a => '<tr><td>'+a.usuario+'</td><td>'+a.tienda+'</td><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
+      tabla = this.datos.map(a => '<tr><td>'+a.usuario+'</td><td>'+a.tienda+'</td><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
     } else {
       tabla = datos.map(a => '<tr><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
     }
@@ -329,7 +325,6 @@ const app = {
     if(!tabla) tabla = '<tr><td colspan="5" class="loading">Sin auditorías</td></tr>';
     document.getElementById('dashTable').innerHTML = tabla;
     
-    // Actualizar filtros
     let tiendas_arr = new Set();
     if(this.usuario.sup) {
       this.datos.forEach(a => tiendas_arr.add(a.tienda));
@@ -396,7 +391,7 @@ const app = {
       usuario: this.usuario.nombre,
       tienda: this.usuario.tienda,
       checklist: name,
-      fecha: fecha.split('T')[0],
+      fecha: fecha,
       porcentaje: pct,
       obs: document.getElementById('obsFinales').value
     };
@@ -407,15 +402,16 @@ const app = {
     })
     .then(r => r.json())
     .then(res => {
-      alert('✅ AUDITORÍA GUARDADA\n'+name+'\n'+data.fecha+'\n'+pct+'%');
-      document.getElementById('selectChecklist').value = '';
-      document.getElementById('itemsDiv').innerHTML = '';
-      document.getElementById('fechaAudit').valueAsDate = new Date();
-      setTimeout(() => this.cargarDatos(), 1000);
+      if(res.success) {
+        alert('✅ AUDITORÍA GUARDADA\n'+name+'\n'+data.fecha+'\n'+pct+'%');
+        document.getElementById('selectChecklist').value = '';
+        document.getElementById('itemsDiv').innerHTML = '';
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('fechaAudit').value = today;
+        setTimeout(() => this.cargarDatos(), 1000);
+      }
     })
-    .catch(e => {
-      alert('❌ Error: '+e.message);
-    });
+    .catch(e => alert('❌ Error: '+e.message));
   },
   
   showTab: function(tab, event) {
@@ -454,11 +450,7 @@ const app = {
 };
 
 app.init();
-
-// Recargar cada 20 segundos
-setInterval(() => {
-  if(app.usuario) app.cargarDatos();
-}, 20000);
+setInterval(() => { if(app.usuario) app.cargarDatos(); }, 20000);
 </script>
 
 </body>
