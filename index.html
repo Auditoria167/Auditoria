@@ -4,28 +4,54 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DISAGRO - Auditoría</title>
+  <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; }
     .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
     .header { background: #2e7d32; color: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-    .header h1 { margin: 0; }
+    .header h1 { margin: 0; font-size: 28px; }
+    .header-info { display: flex; gap: 30px; align-items: center; }
     .btn-salir { width: 80px; padding: 8px; background: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
     .btn-salir:hover { background: #b71c1c; }
     .badge { background: #fff; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 12px; }
-    #loginView { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-    .login-box { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 16px rgba(0,0,0,0.1); max-width: 450px; width: 100%; }
-    .login-box h1 { color: #2e7d32; text-align: center; margin-bottom: 30px; font-size: 32px; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; overflow-x: auto; }
+    .tab-btn { padding: 12px 20px; background: transparent; border: none; cursor: pointer; font-weight: bold; color: #666; border-bottom: 3px solid transparent; white-space: nowrap; }
+    .tab-btn.active { color: #2e7d32; border-bottom-color: #2e7d32; }
+    .tab { display: none; }
+    .tab.active { display: block; }
+    .section { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .section h2 { color: #2e7d32; margin-bottom: 20px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 25px; }
+    .stat { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); padding: 25px; border-radius: 8px; text-align: center; border-left: 4px solid #2e7d32; }
+    .stat-num { font-size: 40px; font-weight: bold; color: #2e7d32; }
+    .stat-label { color: #666; font-size: 14px; margin-top: 8px; }
+    .filters { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+    .filters label { font-weight: bold; }
+    .filters select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #2e7d32; color: white; padding: 15px; text-align: left; }
+    td { padding: 15px; border-bottom: 1px solid #eee; }
+    tr:hover { background: #f9f9f9; }
     .form-group { margin-bottom: 15px; }
     label { display: block; font-weight: bold; color: #333; margin-bottom: 5px; }
-    input { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px; }
-    input:focus { outline: none; border-color: #2e7d32; }
-    button { width: 100%; padding: 12px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 16px; }
+    input, select, textarea { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #2e7d32; }
+    button { padding: 12px 25px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
     button:hover { background: #1b5e20; }
+    #loginView { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f5; }
+    .login-box { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 16px rgba(0,0,0,0.1); max-width: 450px; width: 100%; }
+    .login-box h1 { color: #2e7d32; text-align: center; margin-bottom: 10px; font-size: 32px; }
+    .login-box h3 { text-align: center; color: #666; margin-bottom: 30px; }
     .creds { background: #f0f0f0; padding: 15px; border-radius: 4px; max-height: 250px; overflow-y: auto; font-size: 12px; margin-top: 20px; }
     .cred-item { padding: 8px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; }
-    .cred-pass { background: #e8f5e9; padding: 2px 8px; border-radius: 3px; font-weight: bold; color: #2e7d32; }
-    #appView { display: none; }
+    .item-box { background: #f9f9f9; padding: 15px; border-radius: 6px; margin-bottom: 15px; border-left: 4px solid #2e7d32; }
+    .checkbox-label { display: flex; gap: 10px; align-items: center; cursor: pointer; margin-bottom: 10px; }
+    .checkbox-label input { width: 20px; height: 20px; margin: 0; }
+    .foto-preview { width: 100px; height: 100px; border-radius: 6px; object-fit: cover; margin-top: 10px; }
+    .foto-btn { padding: 8px 15px; background: #2196F3; font-size: 14px; margin-top: 8px; width: auto; }
+    .foto-btn:hover { background: #0b7dda; }
   </style>
 </head>
 <body>
@@ -33,44 +59,124 @@
 <div id="loginView">
   <div class="login-box">
     <h1>🟢 DISAGRO</h1>
+    <h3>Auditoría en Tiempo Real</h3>
     
     <div class="form-group">
       <label>Tu nombre:</label>
-      <input type="text" id="usuario" placeholder="Ej: CANDIDA MELENDEZ">
+      <input type="text" id="usuario" autocomplete="off">
     </div>
 
     <div class="form-group">
       <label>Tu contraseña:</label>
-      <input type="password" id="password" placeholder="Ej: Can1">
+      <input type="password" id="password" autocomplete="off">
     </div>
     
-    <button onclick="login()">INGRESAR</button>
+    <button onclick="app.login()" style="width: 100%;">INGRESAR</button>
 
     <div class="creds">
       <h4 style="margin: 0 0 10px 0; color: #333;">📋 USUARIOS</h4>
       <div id="credsList"></div>
+      <p style="font-size: 11px; color: #999; margin-top: 10px;">⚠️ Contacta a tu supervisor para tu contraseña</p>
     </div>
   </div>
 </div>
 
-<div id="appView">
+<div id="appView" style="display: none;">
   <div class="header">
     <div>
       <h1>DISAGRO Auditoría</h1>
       <p style="margin-top: 5px;">Tienda: <strong id="tiendaDisplay">-</strong> <span id="rolBadge"></span></p>
     </div>
-    <div style="display: flex; gap: 20px; align-items: center;">
-      <p style="color: white;">👤 <strong id="userDisplay">-</strong></p>
+    <div class="header-info">
+      <p>👤 <strong id="userDisplay">-</strong></p>
       <button class="btn-salir" onclick="location.reload();">SALIR</button>
     </div>
   </div>
 
   <div class="container">
-    <div style="background: white; padding: 25px; border-radius: 8px;">
-      <h2 style="color: #2e7d32; margin-bottom: 20px;">✅ ¡Bienvenido!</h2>
-      <p id="welcome"></p>
-      <p style="margin-top: 15px; color: #666;">La app está funcionando correctamente desde GitHub Pages.</p>
-      <p style="margin-top: 15px; color: #666;">Próximamente: Dashboard, nuevas auditorías y reportes.</p>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="app.showTab('dashboard', event)">📊 Dashboard</button>
+      <button class="tab-btn" onclick="app.showTab('auditoria', event)">➕ Nueva Auditoría</button>
+      <button class="tab-btn" onclick="app.showTab('reportes', event)">📋 Reportes</button>
+    </div>
+
+    <div id="dashboard" class="tab active">
+      <div class="section">
+        <h2>Estadísticas</h2>
+        <div class="stats" id="stats">
+          <div class="stat"><div class="stat-num">-</div><div class="stat-label">Total</div></div>
+          <div class="stat"><div class="stat-num">-%</div><div class="stat-label">Promedio</div></div>
+          <div class="stat"><div class="stat-num">-</div><div class="stat-label">Tiendas</div></div>
+        </div>
+        <div class="filters" id="filtersDiv"></div>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr id="tableHeader">
+                <th>Checklist</th>
+                <th>Fecha</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody id="dashTable">
+              <tr><td colspan="4" style="text-align: center; color: #999;">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="auditoria" class="tab">
+      <div class="section">
+        <h2>Nueva Auditoría</h2>
+        <div class="form-group">
+          <label>Checklist:</label>
+          <select id="selectChecklist" onchange="app.cargarChecklist()">
+            <option value="">-- Selecciona --</option>
+            <option value="Mantenimiento Generador">Mantenimiento Generador</option>
+            <option value="Bitácora Generador Diaria">Bitácora Generador Diaria</option>
+            <option value="Mantenimiento Portapalets">Mantenimiento Portapalets</option>
+            <option value="Mantenimiento Tarimas">Mantenimiento Tarimas</option>
+            <option value="Ducha Emergencia">Ducha Emergencia</option>
+            <option value="Aires Acondicionados">Aires Acondicionados</option>
+            <option value="Bitácora Montacargas">Bitácora Montacargas</option>
+            <option value="Verificación Montacargas">Verificación Montacargas</option>
+            <option value="Inspección Señalización">Inspección Señalización</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Fecha:</label>
+          <input type="datetime-local" id="fechaAudit">
+        </div>
+      </div>
+      <div id="itemsDiv"></div>
+    </div>
+
+    <div id="reportes" class="tab">
+      <div class="section">
+        <h2>Reportes</h2>
+        <div class="filters">
+          <label>Filtrar por tienda:</label>
+          <select id="filtroTienda" onchange="app.actualizarTablas()">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr id="reportHeader">
+                <th>Checklist</th>
+                <th>Fecha</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody id="reportTable">
+              <tr><td colspan="4">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <button onclick="app.descargarExcel()" style="margin-top: 20px; width: 100%;">📥 Descargar Excel</button>
+      </div>
     </div>
   </div>
 </div>
@@ -105,47 +211,237 @@ const USUARIOS = [
   {nombre:"JAIME SOSA",tienda:"TEGUCIGALPA",pass:"Jai9",sup:1}
 ];
 
-function init() {
-  let html = '';
-  USUARIOS.forEach(u => {
-    html += '<div class="cred-item"><span>'+u.nombre+'</span><span class="cred-pass">'+u.pass+'</span></div>';
-  });
-  document.getElementById('credsList').innerHTML = html;
-}
+const CHECKLISTS = {
+  "Mantenimiento Generador": ["Nivel de combustible","Cuerda de arranque","Arrancador","Palanca de aceleración y stop","Gomas de soporte","Tablero de Control","Agua de refrigeración","Toma corrientes","Guardas de protección"],
+  "Bitácora Generador Diaria": ["Arranque equipo","Nivel combustible","Estado batería"],
+  "Mantenimiento Portapalets": ["Timón","Barra de Tracción","Ruedas","Chasis","Horquillas","Sistema de Elevación hidráulico","Freno de mano","Tornillos, uniones, cadenas"],
+  "Mantenimiento Tarimas": ["Tablas completas","Rajaduras","Bien distribuidas","Fijas sin clavos faltantes","Grosor suficiente"],
+  "Ducha Emergencia": ["Limpieza","Señalización","Acceso libre","Palancas ajustadas","Presión de agua","Caudal de agua"],
+  "Aires Acondicionados": ["Filtros","Temperatura"],
+  "Bitácora Montacargas": ["Horómetro funciona","Limpieza externa","Limpieza interna","Nivel refrigerante","Nivel combustible","Nivel aceite motor","Bandas motor","Aceite hidráulico","Aceite transmisión","Bornes batería","Fugas aceite","Llantas","Apriete tuercas","Presión aire","Daño chasis","Cinturón seguridad","Tablero instrumentos","Espejo retrovisor","Bocina/claxon","Ruidos extraños","Alarma retroceso","Luces","Sistema dirección","Frenos pedal","Freno mano","Inclinación","Mangueras","Levantamiento descenso","Horquillas","Cadenas"],
+  "Verificación Montacargas": ["Ruedas","Frenos"],
+  "Inspección Señalización": ["Visibilidad","Colores"]
+};
 
-function login() {
-  const nombre = document.getElementById('usuario').value.toUpperCase().trim();
-  const pass = document.getElementById('password').value.trim();
+const app = {
+  usuario: null,
+  db: null,
+  datos: [],
+  fotos: {},
   
-  if(!nombre || !pass) {
-    alert('Escribe nombre y contraseña');
-    return;
+  init: function() {
+    const firebaseConfig = {
+      apiKey: "AIzaSyAVKpxu4d_XddW1WFNa0vayV5TfUFHHAyc",
+      authDomain: "auditoria-bec10.firebaseapp.com",
+      databaseURL: "https://auditoria-bec10-default-rtdb.firebaseio.com",
+      projectId: "auditoria-bec10",
+      storageBucket: "auditoria-bec10.appspot.com",
+      messagingSenderId: "834994506141",
+      appId: "1:834994506141:web:8245fdf93e90e186b4c774"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    this.db = firebase.database();
+    
+    document.getElementById('fechaAudit').valueAsDate = new Date();
+    let html = '';
+    USUARIOS.forEach(u => {
+      html += '<div class="cred-item"><span>✓ '+u.nombre+'</span><span style="font-size:11px; color:#999;">'+u.tienda+'</span></div>';
+    });
+    document.getElementById('credsList').innerHTML = html;
+  },
+  
+  login: function() {
+    const nombre = document.getElementById('usuario').value.toUpperCase().trim();
+    const pass = document.getElementById('password').value.trim();
+    
+    if(!nombre || !pass) { alert('Escribe nombre y contraseña'); return; }
+    
+    const u = USUARIOS.find(x => x.nombre === nombre && x.pass === pass);
+    if(!u) { alert('Usuario o contraseña incorrectos'); return; }
+    
+    this.usuario = u;
+    document.getElementById('loginView').style.display = 'none';
+    document.getElementById('appView').style.display = 'block';
+    document.getElementById('userDisplay').textContent = u.nombre;
+    document.getElementById('tiendaDisplay').textContent = u.tienda;
+    
+    if(u.sup) {
+      document.getElementById('rolBadge').innerHTML = '<span class="badge">👨‍💼 SUPERVISOR</span>';
+      document.getElementById('tableHeader').innerHTML = '<th>Usuario</th><th>Tienda</th><th>Checklist</th><th>Fecha</th><th>%</th>';
+      document.getElementById('reportHeader').innerHTML = '<th>Usuario</th><th>Tienda</th><th>Checklist</th><th>Fecha</th><th>%</th>';
+    }
+    
+    this.cargarDatos();
+  },
+  
+  cargarDatos: function() {
+    const self = this;
+    this.db.ref('auditorias').on('value', function(snapshot) {
+      self.datos = [];
+      snapshot.forEach(function(child) {
+        self.datos.push(child.val());
+      });
+      self.actualizarTablas();
+      self.actualizarFiltros();
+    });
+  },
+  
+  actualizarFiltros: function() {
+    let tiendas = new Set();
+    if(this.usuario.sup) {
+      this.datos.forEach(a => tiendas.add(a.tienda));
+    } else {
+      tiendas.add(this.usuario.tienda);
+    }
+    
+    let html = '<label>Filtrar por tienda:</label><select id="filtroTienda" onchange="app.actualizarTablas()"><option value="">Todas</option>';
+    tiendas.forEach(t => { html += '<option value="'+t+'">'+t+'</option>'; });
+    html += '</select>';
+    document.getElementById('filtersDiv').innerHTML = html;
+  },
+  
+  actualizarTablas: function() {
+    const filtro = document.getElementById('filtroTienda')?.value || "";
+    let datos = this.datos;
+    
+    if(!this.usuario.sup) {
+      datos = datos.filter(a => a.usuario === this.usuario.nombre);
+    } else if(filtro) {
+      datos = datos.filter(a => a.tienda === filtro);
+    }
+    
+    const prom = datos.length > 0 ? Math.round(datos.reduce((s,a) => s+a.porcentaje, 0)/datos.length) : 0;
+    const tiendas = new Set(this.datos.map(a => a.tienda)).size;
+    
+    document.getElementById('stats').innerHTML = 
+      '<div class="stat"><div class="stat-num">'+datos.length+'</div><div class="stat-label">Auditorías</div></div>' +
+      '<div class="stat"><div class="stat-num">'+prom+'%</div><div class="stat-label">Promedio</div></div>' +
+      '<div class="stat"><div class="stat-num">'+tiendas+'</div><div class="stat-label">Tiendas</div></div>';
+    
+    let tabla = '';
+    if(this.usuario.sup) {
+      tabla = datos.map(a => '<tr><td>'+a.usuario+'</td><td>'+a.tienda+'</td><td>'+a.checklist+'</td><td>'+(a.fecha ? a.fecha.split('T')[0] : '-')+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
+    } else {
+      tabla = datos.map(a => '<tr><td>'+a.checklist+'</td><td>'+(a.fecha ? a.fecha.split('T')[0] : '-')+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
+    }
+    
+    if(!tabla) tabla = '<tr><td colspan="5" style="text-align:center;color:#999;padding:40px;">Sin datos</td></tr>';
+    document.getElementById('dashTable').innerHTML = tabla;
+    document.getElementById('reportTable').innerHTML = tabla;
+  },
+  
+  cargarChecklist: function() {
+    const name = document.getElementById('selectChecklist').value;
+    if(!name) { document.getElementById('itemsDiv').innerHTML = ''; return; }
+    
+    const items = CHECKLISTS[name];
+    this.fotos = {};
+    let html = '<div class="section"><h2>'+name+'</h2><p style="color:#999;">Items: '+items.length+'</p>';
+    
+    items.forEach((item,i) => {
+      html += '<div class="item-box">';
+      html += '<label class="checkbox-label"><input type="checkbox" id="item'+i+'"> <span style="font-weight:bold;">'+item+'</span></label>';
+      html += '<button class="foto-btn" onclick="app.tomarFoto('+i+')">📷 Foto</button>';
+      html += '<img id="foto'+i+'" class="foto-preview" style="display:none;">';
+      html += '</div>';
+    });
+    
+    html += '<div class="section" style="margin-top:20px;"><label>Observaciones:</label><textarea id="obsFinales" placeholder="Escribe observaciones..."></textarea><button onclick="app.guardarAuditoria()" style="width:100%;margin-top:15px;">✓ GUARDAR AUDITORÍA</button></div>';
+    document.getElementById('itemsDiv').innerHTML = html;
+  },
+  
+  tomarFoto: function(index) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        const base64 = event.target.result;
+        this.fotos[index] = base64;
+        const img = document.getElementById('foto' + index);
+        img.src = base64;
+        img.style.display = 'block';
+      };
+      
+      reader.readAsDataURL(file);
+    };
+    
+    input.click();
+  },
+  
+  guardarAuditoria: function() {
+    const name = document.getElementById('selectChecklist').value;
+    const fecha = document.getElementById('fechaAudit').value;
+    const items = CHECKLISTS[name];
+    
+    if(!name) { alert('Selecciona un checklist'); return; }
+    
+    const checked = Array.from({length: items.length}).filter((_, i) => document.getElementById('item'+i).checked).length;
+    const pct = Math.round((checked / items.length) * 100);
+    
+    const auditId = 'audit_' + Date.now();
+    this.db.ref('auditorias/' + auditId).set({
+      usuario: this.usuario.nombre,
+      tienda: this.usuario.tienda,
+      checklist: name,
+      fecha: fecha,
+      porcentaje: pct,
+      obs: document.getElementById('obsFinales').value,
+      fotos: this.fotos,
+      timestamp: new Date().getTime()
+    }).then(() => {
+      alert('✅ Auditoría guardada con fotos');
+      document.getElementById('selectChecklist').value = '';
+      document.getElementById('itemsDiv').innerHTML = '';
+    }).catch(err => alert('Error: ' + err.message));
+  },
+  
+  showTab: function(tab, event) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tab).classList.add('active');
+    event.target.classList.add('active');
+  },
+  
+  descargarExcel: function() {
+    const filtro = document.getElementById('filtroTienda')?.value || "";
+    let datos = this.datos;
+    
+    if(!this.usuario.sup) {
+      datos = datos.filter(a => a.usuario === this.usuario.nombre);
+    } else if(filtro) {
+      datos = datos.filter(a => a.tienda === filtro);
+    }
+    
+    let csv;
+    if(this.usuario.sup) {
+      csv = 'Usuario,Tienda,Checklist,Fecha,Porcentaje\n';
+      datos.forEach(a => {
+        csv += '"'+a.usuario+'","'+a.tienda+'","'+a.checklist+'","'+(a.fecha ? a.fecha.split('T')[0] : '-')+'","'+a.porcentaje+'%"\n';
+      });
+    } else {
+      csv = 'Checklist,Fecha,Porcentaje\n';
+      datos.forEach(a => {
+        csv += '"'+a.checklist+'","'+(a.fecha ? a.fecha.split('T')[0] : '-')+'","'+a.porcentaje+'%"\n';
+      });
+    }
+    
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = 'auditoria_'+this.usuario.nombre.replace(/ /g,'_')+'.csv';
+    link.click();
   }
-  
-  const u = USUARIOS.find(x => x.nombre === nombre && x.pass === pass);
-  if(!u) {
-    alert('Usuario o contraseña incorrectos');
-    return;
-  }
-  
-  document.getElementById('loginView').style.display = 'none';
-  document.getElementById('appView').style.display = 'block';
-  document.getElementById('userDisplay').textContent = u.nombre;
-  document.getElementById('tiendaDisplay').textContent = u.tienda;
-  document.getElementById('welcome').textContent = 'Hola '+u.nombre+', bienvenido a DISAGRO Auditoría. Tienda: '+u.tienda;
-  
-  if(u.sup) {
-    document.getElementById('rolBadge').innerHTML = '<span class="badge">👨‍💼 SUPERVISOR</span>';
-  } else {
-    document.getElementById('rolBadge').innerHTML = '<span class="badge">👤 OPERARIO</span>';
-  }
-}
+};
 
-document.getElementById('password').addEventListener('keypress', function(e) {
-  if(e.key === 'Enter') login();
-});
-
-init();
+app.init();
 </script>
 
 </body>
