@@ -69,7 +69,7 @@
       <input type="password" id="password" autocomplete="off">
     </div>
     
-    <button onclick="window.app.login()" style="width: 100%;">INGRESAR</button>
+    <button onclick="app.login()" style="width: 100%;">INGRESAR</button>
 
     <div class="creds">
       <h4 style="margin: 0 0 10px 0; color: #333;">📋 USUARIOS</h4>
@@ -93,9 +93,9 @@
 
   <div class="container">
     <div class="tabs">
-      <button class="tab-btn active" onclick="window.app.showTab('dashboard', event)">📊 Dashboard</button>
-      <button class="tab-btn" onclick="window.app.showTab('auditoria', event)">➕ Nueva Auditoría</button>
-      <button class="tab-btn" onclick="window.app.showTab('reportes', event)">📋 Reportes</button>
+      <button class="tab-btn active" onclick="app.showTab('dashboard', event)">📊 Dashboard</button>
+      <button class="tab-btn" onclick="app.showTab('auditoria', event)">➕ Nueva Auditoría</button>
+      <button class="tab-btn" onclick="app.showTab('reportes', event)">📋 Reportes</button>
     </div>
 
     <div id="dashboard" class="tab active">
@@ -117,7 +117,7 @@
               </tr>
             </thead>
             <tbody id="dashTable">
-              <tr><td colspan="4" style="text-align: center; color: #999;">Cargando...</td></tr>
+              <tr><td colspan="4" style="text-align: center; color: #999;">Sin auditorías</td></tr>
             </tbody>
           </table>
         </div>
@@ -129,7 +129,7 @@
         <h2>Nueva Auditoría</h2>
         <div class="form-group">
           <label>Checklist:</label>
-          <select id="selectChecklist" onchange="window.app.cargarChecklist()">
+          <select id="selectChecklist" onchange="app.cargarChecklist()">
             <option value="">-- Selecciona --</option>
             <option value="Mantenimiento Generador">Mantenimiento Generador</option>
             <option value="Bitácora Generador Diaria">Bitácora Generador Diaria</option>
@@ -155,7 +155,7 @@
         <h2>Reportes</h2>
         <div class="filters">
           <label>Filtrar por tienda:</label>
-          <select id="filtroTienda" onchange="window.app.actualizarTablas()">
+          <select id="filtroTienda" onchange="app.actualizarTablas()">
             <option value="">Todas</option>
           </select>
         </div>
@@ -169,18 +169,15 @@
               </tr>
             </thead>
             <tbody id="reportTable">
-              <tr><td colspan="4">Cargando...</td></tr>
+              <tr><td colspan="4">Sin auditorías</td></tr>
             </tbody>
           </table>
         </div>
-        <button onclick="window.app.descargarExcel()" style="margin-top: 20px; width: 100%;">📥 Descargar Excel</button>
+        <button onclick="app.descargarExcel()" style="margin-top: 20px; width: 100%;">📥 Descargar Excel</button>
       </div>
     </div>
   </div>
 </div>
-
-<script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js"></script>
 
 <script>
 const USUARIOS = [
@@ -224,32 +221,8 @@ const CHECKLISTS = {
   "Inspección Señalización": ["Visibilidad","Colores"]
 };
 
-// Esperar a que Firebase esté listo
-window.addEventListener('load', function() {
-  setTimeout(function() {
-    initializeApp();
-  }, 500);
-});
-
-function initializeApp() {
-  const firebaseConfig = {
-    apiKey: "AIzaSyAVKpxu4d_XddW1WFNa0vayV5TfUFHHAyc",
-    authDomain: "auditoria-bec10.firebaseapp.com",
-    databaseURL: "https://auditoria-bec10-default-rtdb.firebaseio.com",
-    projectId: "auditoria-bec10",
-    storageBucket: "auditoria-bec10.appspot.com",
-    messagingSenderId: "834994506141",
-    appId: "1:834994506141:web:8245fdf93e90e186b4c774"
-  };
-  
-  firebase.initializeApp(firebaseConfig);
-  window.app.db = firebase.database();
-  window.app.init();
-}
-
-window.app = {
+const app = {
   usuario: null,
-  db: null,
   datos: [],
   fotos: {},
   
@@ -260,6 +233,7 @@ window.app = {
       html += '<div class="cred-item"><span>✓ '+u.nombre+'</span><span style="font-size:11px; color:#999;">'+u.tienda+'</span></div>';
     });
     document.getElementById('credsList').innerHTML = html;
+    this.cargarDatos();
   },
   
   login: function() {
@@ -283,19 +257,16 @@ window.app = {
       document.getElementById('reportHeader').innerHTML = '<th>Usuario</th><th>Tienda</th><th>Checklist</th><th>Fecha</th><th>%</th>';
     }
     
-    this.cargarDatos();
+    this.actualizarTablas();
   },
   
   cargarDatos: function() {
-    const self = this;
-    this.db.ref('auditorias').on('value', function(snapshot) {
-      self.datos = [];
-      snapshot.forEach(function(child) {
-        self.datos.push(child.val());
-      });
-      self.actualizarTablas();
-      self.actualizarFiltros();
-    });
+    const stored = localStorage.getItem('auditorias_disagro');
+    this.datos = stored ? JSON.parse(stored) : [];
+  },
+  
+  guardarDatos: function() {
+    localStorage.setItem('auditorias_disagro', JSON.stringify(this.datos));
   },
   
   actualizarFiltros: function() {
@@ -306,7 +277,7 @@ window.app = {
       tiendas.add(this.usuario.tienda);
     }
     
-    let html = '<label>Filtrar por tienda:</label><select id="filtroTienda" onchange="window.app.actualizarTablas()"><option value="">Todas</option>';
+    let html = '<label>Filtrar por tienda:</label><select id="filtroTienda" onchange="app.actualizarTablas()"><option value="">Todas</option>';
     tiendas.forEach(t => { html += '<option value="'+t+'">'+t+'</option>'; });
     html += '</select>';
     document.getElementById('filtersDiv').innerHTML = html;
@@ -332,14 +303,15 @@ window.app = {
     
     let tabla = '';
     if(this.usuario.sup) {
-      tabla = datos.map(a => '<tr><td>'+a.usuario+'</td><td>'+a.tienda+'</td><td>'+a.checklist+'</td><td>'+(a.fecha ? a.fecha.split('T')[0] : '-')+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
+      tabla = datos.map(a => '<tr><td>'+a.usuario+'</td><td>'+a.tienda+'</td><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
     } else {
-      tabla = datos.map(a => '<tr><td>'+a.checklist+'</td><td>'+(a.fecha ? a.fecha.split('T')[0] : '-')+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
+      tabla = datos.map(a => '<tr><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
     }
     
-    if(!tabla) tabla = '<tr><td colspan="5" style="text-align:center;color:#999;padding:40px;">Sin datos</td></tr>';
+    if(!tabla) tabla = '<tr><td colspan="5" style="text-align:center;color:#999;padding:40px;">Sin auditorías</td></tr>';
     document.getElementById('dashTable').innerHTML = tabla;
     document.getElementById('reportTable').innerHTML = tabla;
+    this.actualizarFiltros();
   },
   
   cargarChecklist: function() {
@@ -353,12 +325,12 @@ window.app = {
     items.forEach((item,i) => {
       html += '<div class="item-box">';
       html += '<label class="checkbox-label"><input type="checkbox" id="item'+i+'"> <span style="font-weight:bold;">'+item+'</span></label>';
-      html += '<button class="foto-btn" onclick="window.app.tomarFoto('+i+')">📷 Foto</button>';
+      html += '<button class="foto-btn" onclick="app.tomarFoto('+i+')">📷 Foto</button>';
       html += '<img id="foto'+i+'" class="foto-preview" style="display:none;">';
       html += '</div>';
     });
     
-    html += '<div class="section" style="margin-top:20px;"><label>Observaciones:</label><textarea id="obsFinales" placeholder="Escribe observaciones..."></textarea><button onclick="window.app.guardarAuditoria()" style="width:100%;margin-top:15px;">✓ GUARDAR AUDITORÍA</button></div>';
+    html += '<div class="section" style="margin-top:20px;"><label>Observaciones:</label><textarea id="obsFinales" placeholder="Escribe observaciones..."></textarea><button onclick="app.guardarAuditoria()" style="width:100%;margin-top:15px;">✓ GUARDAR AUDITORÍA</button></div>';
     document.getElementById('itemsDiv').innerHTML = html;
   },
   
@@ -396,21 +368,22 @@ window.app = {
     const checked = Array.from({length: items.length}).filter((_, i) => document.getElementById('item'+i).checked).length;
     const pct = Math.round((checked / items.length) * 100);
     
-    const auditId = 'audit_' + Date.now();
-    this.db.ref('auditorias/' + auditId).set({
+    this.datos.push({
       usuario: this.usuario.nombre,
       tienda: this.usuario.tienda,
       checklist: name,
-      fecha: fecha,
+      fecha: fecha.split('T')[0],
       porcentaje: pct,
       obs: document.getElementById('obsFinales').value,
       fotos: this.fotos,
       timestamp: new Date().getTime()
-    }).then(() => {
-      alert('✅ Auditoría guardada');
-      document.getElementById('selectChecklist').value = '';
-      document.getElementById('itemsDiv').innerHTML = '';
-    }).catch(err => alert('❌ Error: ' + err.message));
+    });
+    
+    this.guardarDatos();
+    alert('✅ Auditoría guardada');
+    document.getElementById('selectChecklist').value = '';
+    document.getElementById('itemsDiv').innerHTML = '';
+    this.actualizarTablas();
   },
   
   showTab: function(tab, event) {
@@ -434,12 +407,12 @@ window.app = {
     if(this.usuario.sup) {
       csv = 'Usuario,Tienda,Checklist,Fecha,Porcentaje\n';
       datos.forEach(a => {
-        csv += '"'+a.usuario+'","'+a.tienda+'","'+a.checklist+'","'+(a.fecha ? a.fecha.split('T')[0] : '-')+'","'+a.porcentaje+'%"\n';
+        csv += '"'+a.usuario+'","'+a.tienda+'","'+a.checklist+'","'+a.fecha+'","'+a.porcentaje+'%"\n';
       });
     } else {
       csv = 'Checklist,Fecha,Porcentaje\n';
       datos.forEach(a => {
-        csv += '"'+a.checklist+'","'+(a.fecha ? a.fecha.split('T')[0] : '-')+'","'+a.porcentaje+'%"\n';
+        csv += '"'+a.checklist+'","'+a.fecha+'","'+a.porcentaje+'%"\n';
       });
     }
     
@@ -451,6 +424,8 @@ window.app = {
     link.click();
   }
 };
+
+app.init();
 </script>
 
 </body>
