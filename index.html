@@ -138,8 +138,8 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Fecha:</label>
-          <input type="date" id="fechaAudit">
+          <label>Fecha (YYYY-MM-DD):</label>
+          <input type="text" id="fechaAudit" placeholder="2026-06-18">
         </div>
       </div>
       <div id="itemsDiv"></div>
@@ -216,7 +216,7 @@ const CHECKLISTS = {
   "Inspección Señalización": ["Visibilidad","Colores"]
 };
 
-const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwcIfEPGy1y4udPS-tXIsX8zgQZUIPPrZrmT4TT9M3-mZHrpzDrLZB581X2unPknSXaAg/exec";
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbxWVUawMPhcvSCO-gL184p4pZthX0PTzXPvqlByUh_z047gpwS2izdrXhf-HjxkpLuBjg/exec";
 
 const app = {
   usuario: null,
@@ -224,9 +224,9 @@ const app = {
   cargando: false,
   
   init: function() {
-    // Usar TODAY en lugar de valueAsDate
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('fechaAudit').value = today;
+    const hoy = new Date();
+    const fecha = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+    document.getElementById('fechaAudit').value = fecha;
     
     let html = '';
     USUARIOS.forEach(u => {
@@ -382,7 +382,7 @@ const app = {
     const items = CHECKLISTS[name];
     
     if(!name) { alert('❌ Selecciona un checklist'); return; }
-    if(!fecha) { alert('❌ Selecciona una fecha'); return; }
+    if(!fecha) { alert('❌ Escribe una fecha'); return; }
     
     const checked = Array.from({length: items.length}).filter((_, i) => document.getElementById('item'+i).checked).length;
     const pct = Math.round((checked / items.length) * 100);
@@ -406,8 +406,9 @@ const app = {
         alert('✅ AUDITORÍA GUARDADA\n'+name+'\n'+data.fecha+'\n'+pct+'%');
         document.getElementById('selectChecklist').value = '';
         document.getElementById('itemsDiv').innerHTML = '';
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('fechaAudit').value = today;
+        const hoy = new Date();
+        const f = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+        document.getElementById('fechaAudit').value = f;
         setTimeout(() => this.cargarDatos(), 1000);
       }
     })
