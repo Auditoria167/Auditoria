@@ -25,9 +25,6 @@
     .stat { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); padding: 25px; border-radius: 8px; text-align: center; border-left: 4px solid #2e7d32; }
     .stat-num { font-size: 40px; font-weight: bold; color: #2e7d32; }
     .stat-label { color: #666; font-size: 14px; margin-top: 8px; }
-    .filters { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
-    .filters label { font-weight: bold; }
-    .filters select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; }
     table { width: 100%; border-collapse: collapse; }
     th { background: #2e7d32; color: white; padding: 15px; text-align: left; }
     td { padding: 15px; border-bottom: 1px solid #eee; }
@@ -43,13 +40,12 @@
     .login-box h1 { color: #2e7d32; text-align: center; margin-bottom: 10px; font-size: 32px; }
     .login-box h3 { text-align: center; color: #666; margin-bottom: 30px; }
     .creds { background: #f0f0f0; padding: 15px; border-radius: 4px; max-height: 250px; overflow-y: auto; font-size: 12px; margin-top: 20px; }
-    .cred-item { padding: 8px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; }
+    .cred-item { padding: 8px; border-bottom: 1px solid #ddd; }
     .item-box { background: #f9f9f9; padding: 15px; border-radius: 6px; margin-bottom: 15px; border-left: 4px solid #2e7d32; }
     .checkbox-label { display: flex; gap: 10px; align-items: center; cursor: pointer; margin-bottom: 10px; }
     .checkbox-label input { width: 20px; height: 20px; margin: 0; }
-    .foto-preview { width: 100px; height: 100px; border-radius: 6px; object-fit: cover; margin-top: 10px; }
-    .foto-btn { padding: 8px 15px; background: #2196F3; font-size: 14px; margin-top: 8px; width: auto; }
-    .foto-btn:hover { background: #0b7dda; }
+    .filters { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    .loading { text-align: center; color: #999; padding: 20px; }
   </style>
 </head>
 <body>
@@ -74,7 +70,6 @@
     <div class="creds">
       <h4 style="margin: 0 0 10px 0; color: #333;">📋 USUARIOS</h4>
       <div id="credsList"></div>
-      <p style="font-size: 11px; color: #999; margin-top: 10px;">⚠️ Contacta a tu supervisor para tu contraseña</p>
     </div>
   </div>
 </div>
@@ -117,7 +112,7 @@
               </tr>
             </thead>
             <tbody id="dashTable">
-              <tr><td colspan="4" style="text-align: center; color: #999;">Sin auditorías</td></tr>
+              <tr><td colspan="4" class="loading">⏳ Cargando auditorías...</td></tr>
             </tbody>
           </table>
         </div>
@@ -169,7 +164,7 @@
               </tr>
             </thead>
             <tbody id="reportTable">
-              <tr><td colspan="4">Sin auditorías</td></tr>
+              <tr><td colspan="4" class="loading">⏳ Cargando reportes...</td></tr>
             </tbody>
           </table>
         </div>
@@ -221,16 +216,17 @@ const CHECKLISTS = {
   "Inspección Señalización": ["Visibilidad","Colores"]
 };
 
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwcIfEPGy1y4udPS-tXIsX8zgQZUIPPrZrmT4TT9M3-mZHrpzDrLZB581X2unPknSXaAg/exec";
+
 const app = {
   usuario: null,
   datos: [],
-  fotos: {},
   
   init: function() {
     document.getElementById('fechaAudit').valueAsDate = new Date();
     let html = '';
     USUARIOS.forEach(u => {
-      html += '<div class="cred-item"><span>✓ '+u.nombre+'</span><span style="font-size:11px; color:#999;">'+u.tienda+'</span></div>';
+      html += '<div class="cred-item">✓ '+u.nombre+' ('+u.tienda+')</div>';
     });
     document.getElementById('credsList').innerHTML = html;
     this.cargarDatos();
@@ -257,43 +253,33 @@ const app = {
       document.getElementById('reportHeader').innerHTML = '<th>Usuario</th><th>Tienda</th><th>Checklist</th><th>Fecha</th><th>%</th>';
     }
     
-    this.actualizarTablas();
+    this.cargarDatos();
   },
   
   cargarDatos: function() {
-    const stored = localStorage.getItem('auditorias_disagro');
-    this.datos = stored ? JSON.parse(stored) : [];
-  },
-  
-  guardarDatos: function() {
-    localStorage.setItem('auditorias_disagro', JSON.stringify(this.datos));
-  },
-  
-  actualizarFiltros: function() {
-    let tiendas = new Set();
-    if(this.usuario.sup) {
-      this.datos.forEach(a => tiendas.add(a.tienda));
-    } else {
-      tiendas.add(this.usuario.tienda);
-    }
-    
-    let html = '<label>Filtrar por tienda:</label><select id="filtroTienda" onchange="app.actualizarTablas()"><option value="">Todas</option>';
-    tiendas.forEach(t => { html += '<option value="'+t+'">'+t+'</option>'; });
-    html += '</select>';
-    document.getElementById('filtersDiv').innerHTML = html;
+    fetch(SHEETS_URL)
+      .then(r => r.json())
+      .then(datos => {
+        this.datos = datos;
+        this.actualizarTablas();
+      })
+      .catch(e => {
+        console.error('Error cargando:', e);
+        this.actualizarTablas();
+      });
   },
   
   actualizarTablas: function() {
     const filtro = document.getElementById('filtroTienda')?.value || "";
-    let datos = this.datos;
+    let datos = this.datos.slice();
     
-    if(!this.usuario.sup) {
+    if(this.usuario && !this.usuario.sup) {
       datos = datos.filter(a => a.usuario === this.usuario.nombre);
     } else if(filtro) {
       datos = datos.filter(a => a.tienda === filtro);
     }
     
-    const prom = datos.length > 0 ? Math.round(datos.reduce((s,a) => s+a.porcentaje, 0)/datos.length) : 0;
+    const prom = datos.length > 0 ? Math.round(datos.reduce((s,a) => s+parseInt(a.porcentaje), 0)/datos.length) : 0;
     const tiendas = new Set(this.datos.map(a => a.tienda)).size;
     
     document.getElementById('stats').innerHTML = 
@@ -302,16 +288,27 @@ const app = {
       '<div class="stat"><div class="stat-num">'+tiendas+'</div><div class="stat-label">Tiendas</div></div>';
     
     let tabla = '';
-    if(this.usuario.sup) {
+    if(this.usuario && this.usuario.sup) {
       tabla = datos.map(a => '<tr><td>'+a.usuario+'</td><td>'+a.tienda+'</td><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
     } else {
       tabla = datos.map(a => '<tr><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
     }
     
-    if(!tabla) tabla = '<tr><td colspan="5" style="text-align:center;color:#999;padding:40px;">Sin auditorías</td></tr>';
+    if(!tabla) tabla = '<tr><td colspan="5" class="loading">Sin auditorías aún</td></tr>';
     document.getElementById('dashTable').innerHTML = tabla;
     document.getElementById('reportTable').innerHTML = tabla;
-    this.actualizarFiltros();
+    
+    let tiendas_arr = new Set();
+    if(this.usuario.sup) {
+      this.datos.forEach(a => tiendas_arr.add(a.tienda));
+    } else {
+      tiendas_arr.add(this.usuario.tienda);
+    }
+    
+    let html = '<label>Filtrar por tienda:</label><select id="filtroTienda" onchange="app.actualizarTablas()"><option value="">Todas</option>';
+    tiendas_arr.forEach(t => { html += '<option value="'+t+'">'+t+'</option>'; });
+    html += '</select>';
+    document.getElementById('filtersDiv').innerHTML = html;
   },
   
   cargarChecklist: function() {
@@ -319,14 +316,11 @@ const app = {
     if(!name) { document.getElementById('itemsDiv').innerHTML = ''; return; }
     
     const items = CHECKLISTS[name];
-    this.fotos = {};
     let html = '<div class="section"><h2>'+name+'</h2><p style="color:#999;">Items: '+items.length+'</p>';
     
     items.forEach((item,i) => {
       html += '<div class="item-box">';
-      html += '<label class="checkbox-label"><input type="checkbox" id="item'+i+'"> <span style="font-weight:bold;">'+item+'</span></label>';
-      html += '<button class="foto-btn" onclick="app.tomarFoto('+i+')">📷 Foto</button>';
-      html += '<img id="foto'+i+'" class="foto-preview" style="display:none;">';
+      html += '<label class="checkbox-label"><input type="checkbox" id="item'+i+'"> <span>'+item+'</span></label>';
       html += '</div>';
     });
     
@@ -334,56 +328,43 @@ const app = {
     document.getElementById('itemsDiv').innerHTML = html;
   },
   
-  tomarFoto: function(index) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment';
-    
-    input.onchange = (e) => {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      
-      reader.onload = (event) => {
-        const base64 = event.target.result;
-        this.fotos[index] = base64;
-        const img = document.getElementById('foto' + index);
-        img.src = base64;
-        img.style.display = 'block';
-      };
-      
-      reader.readAsDataURL(file);
-    };
-    
-    input.click();
-  },
-  
   guardarAuditoria: function() {
     const name = document.getElementById('selectChecklist').value;
     const fecha = document.getElementById('fechaAudit').value;
     const items = CHECKLISTS[name];
     
-    if(!name) { alert('Selecciona un checklist'); return; }
+    if(!name) { alert('❌ Selecciona un checklist'); return; }
+    if(!fecha) { alert('❌ Selecciona una fecha'); return; }
     
     const checked = Array.from({length: items.length}).filter((_, i) => document.getElementById('item'+i).checked).length;
     const pct = Math.round((checked / items.length) * 100);
     
-    this.datos.push({
+    const data = {
       usuario: this.usuario.nombre,
       tienda: this.usuario.tienda,
       checklist: name,
       fecha: fecha.split('T')[0],
       porcentaje: pct,
-      obs: document.getElementById('obsFinales').value,
-      fotos: this.fotos,
-      timestamp: new Date().getTime()
-    });
+      obs: document.getElementById('obsFinales').value
+    };
     
-    this.guardarDatos();
-    alert('✅ Auditoría guardada');
-    document.getElementById('selectChecklist').value = '';
-    document.getElementById('itemsDiv').innerHTML = '';
-    this.actualizarTablas();
+    fetch(SHEETS_URL, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+      if(res.success) {
+        alert('✅ AUDITORÍA GUARDADA EN GOOGLE SHEETS\n\n'+name+'\nFecha: '+data.fecha+'\nCompleted: '+pct+'%\n\n¡VISIBLE EN TODOS LOS TELÉFONOS!');
+        document.getElementById('selectChecklist').value = '';
+        document.getElementById('itemsDiv').innerHTML = '';
+        document.getElementById('fechaAudit').valueAsDate = new Date();
+        setTimeout(() => this.cargarDatos(), 1000);
+      }
+    })
+    .catch(e => {
+      alert('❌ Error: '+e.message);
+    });
   },
   
   showTab: function(tab, event) {
@@ -391,11 +372,14 @@ const app = {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(tab).classList.add('active');
     event.target.classList.add('active');
+    if(tab === 'dashboard' || tab === 'reportes') {
+      this.cargarDatos();
+    }
   },
   
   descargarExcel: function() {
     const filtro = document.getElementById('filtroTienda')?.value || "";
-    let datos = this.datos;
+    let datos = this.datos.slice();
     
     if(!this.usuario.sup) {
       datos = datos.filter(a => a.usuario === this.usuario.nombre);
@@ -426,6 +410,11 @@ const app = {
 };
 
 app.init();
+
+// Recargar datos cada 30 segundos
+setInterval(() => {
+  if(app.usuario) app.cargarDatos();
+}, 30000);
 </script>
 
 </body>
