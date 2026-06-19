@@ -220,7 +220,7 @@ const CHECKLISTS = {
   "Inspección Señalización": ["Visibilidad","Colores"]
 };
 
-const SHEETS_URL = "https://script.google.com/macros/s/AKfycbxWVUawMPhcvSCO-gL184p4pZthX0PTzXPvqlByUh_z047gpwS2izdrXhf-HjxkpLuBjg/exec";
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbymjm9fEQ0dOpeLuMx5-TikIqGULBzhm5sVSjDOQRZ3Ad19B-XZFyYfXa6iOMNdMkMimQ/exec";
 
 const app = {
   usuario: null,
@@ -272,7 +272,6 @@ const app = {
     if(this.usuario.sup) {
       document.getElementById('rolBadge').innerHTML = '<span class="badge">👨‍💼 SUPERVISOR</span>';
       document.getElementById('tableHeader').innerHTML = '<th>Usuario</th><th>Tienda</th><th>Checklist</th><th>Fecha</th><th>%</th>';
-      document.getElementById('reportHeader').innerHTML = '<th>Usuario</th><th>Tienda</th><th>Checklist</th><th>Fecha</th><th>%</th>';
     }
   },
   
