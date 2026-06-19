@@ -458,7 +458,17 @@ const app = {
     const checklist = CHECKLISTS[a.checklist] || [];
     const itemsCompletos = a.itemsCompletados ? a.itemsCompletados.split(',').map(x => parseInt(x)) : [];
     
-    // Construir filas de items
+    // Buscar fotos guardadas en el dispositivo para esta auditoría
+    let fotos = {};
+    try {
+      const claveFotos = 'fotos:' + a.usuario + '|' + a.tienda + '|' + a.checklist + '|' + a.fecha;
+      const guardadas = localStorage.getItem(claveFotos);
+      if(guardadas) fotos = JSON.parse(guardadas);
+    } catch(err) {}
+    
+    const hayFotos = Object.keys(fotos).length > 0;
+    
+    // Construir filas de items (con columna de foto si aplica)
     let filasItems = '';
     checklist.forEach((item, i) => {
       const ok = itemsCompletos.includes(i);
@@ -468,11 +478,20 @@ const app = {
       filasItems += '<tr>' +
         '<td style="padding:8px 12px;border:1px solid #ccc;">'+(i+1)+'</td>' +
         '<td style="padding:8px 12px;border:1px solid #ccc;">'+item+'</td>' +
-        '<td style="padding:8px 12px;border:1px solid #ccc;text-align:center;background:'+bg+';color:'+color+';font-weight:bold;">'+estado+'</td>' +
-        '</tr>';
+        '<td style="padding:8px 12px;border:1px solid #ccc;text-align:center;background:'+bg+';color:'+color+';font-weight:bold;">'+estado+'</td>';
+      if(hayFotos) {
+        const foto = fotos[i];
+        filasItems += '<td style="padding:6px;border:1px solid #ccc;text-align:center;">' +
+          (foto ? '<img src="'+foto+'" style="max-width:120px;max-height:90px;border-radius:4px;">' : '<span style="color:#bbb;font-size:11px;">—</span>') +
+          '</td>';
+      }
+      filasItems += '</tr>';
     });
     
     const obsTexto = (a.obs && a.obs.trim()) ? a.obs : 'Sin observaciones';
+    
+    // Encabezado de tabla (con columna Evidencia si hay fotos)
+    const thFoto = hayFotos ? '<th style="width:130px;text-align:center;">Evidencia</th>' : '';
     
     const html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Checklist de Mantenimiento - '+a.checklist+'</title>' +
       '<style>' +
@@ -502,7 +521,7 @@ const app = {
       '<div><strong>Fecha:</strong> '+a.fecha+'</div>' +
       '</div>' +
       '<div class="score-box"><div class="num">'+a.porcentaje+'%</div><div>Cumplimiento ('+itemsCompletos.length+' de '+checklist.length+' puntos)</div></div>' +
-      '<table><thead><tr><th style="width:40px;">#</th><th>Punto Revisado</th><th style="width:130px;text-align:center;">Estado</th></tr></thead><tbody>'+filasItems+'</tbody></table>' +
+      '<table><thead><tr><th style="width:40px;">#</th><th>Punto Revisado</th><th style="width:130px;text-align:center;">Estado</th>'+thFoto+'</tr></thead><tbody>'+filasItems+'</tbody></table>' +
       '<div class="obs-box"><strong>📝 Observaciones:</strong><br>'+obsTexto+'</div>' +
       '<div class="firma"><div>Firma del Auditor</div><div>Firma del Responsable</div></div>' +
       '<div class="footer">Documento generado el '+new Date().toLocaleString('es-HN')+' · DISAGRO Checklist de Mantenimientos</div>' +
@@ -518,17 +537,66 @@ const app = {
     const name = document.getElementById('selectChecklist').value;
     if(!name) { document.getElementById('itemsDiv').innerHTML = ''; return; }
     
+    // Reiniciar fotos al cargar un checklist nuevo
+    this.fotosActuales = {};
+    
     const items = CHECKLISTS[name];
-    let html = '<div class="section"><h2>'+name+'</h2><p style="color:#999;">Items: '+items.length+'</p>';
+    let html = '<div class="section"><h2>'+name+'</h2><p style="color:#999;">Items: '+items.length+' · La foto es opcional</p>';
     
     items.forEach((item,i) => {
       html += '<div class="item-box">';
       html += '<label class="checkbox-label"><input type="checkbox" id="item'+i+'"> <span>'+item+'</span></label>';
+      // Botón de foto + input oculto + miniatura
+      html += '<div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">';
+      html += '<input type="file" id="file'+i+'" accept="image/*" capture="environment" style="display:none;" onchange="app.cargarFoto('+i+', this)">';
+      html += '<button type="button" onclick="document.getElementById(\'file'+i+'\').click()" style="padding:6px 12px;font-size:12px;background:#607d8b;">📷 Agregar foto</button>';
+      html += '<div id="thumb'+i+'"></div>';
+      html += '</div>';
       html += '</div>';
     });
     
     html += '<div class="section" style="margin-top:20px;"><label>Observaciones:</label><textarea id="obsFinales" placeholder="Escribe observaciones..."></textarea><button onclick="app.guardarAuditoria()" style="width:100%;margin-top:15px;">✓ GUARDAR AUDITORÍA</button></div>';
     document.getElementById('itemsDiv').innerHTML = html;
+  },
+  
+  cargarFoto: function(i, input) {
+    const file = input.files[0];
+    if(!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        // Comprimir: redimensionar a máximo 800px y exportar JPEG
+        const maxDim = 800;
+        let w = img.width, h = img.height;
+        if(w > h && w > maxDim) { h = h * maxDim / w; w = maxDim; }
+        else if(h > maxDim) { w = w * maxDim / h; h = maxDim; }
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        
+        const base64 = canvas.toDataURL('image/jpeg', 0.55);
+        this.fotosActuales[i] = base64;
+        
+        // Mostrar miniatura con opción de quitar
+        document.getElementById('thumb'+i).innerHTML = 
+          '<div style="display:inline-flex;align-items:center;gap:8px;">' +
+          '<img src="'+base64+'" style="height:50px;border-radius:4px;border:1px solid #ccc;">' +
+          '<button type="button" onclick="app.quitarFoto('+i+')" style="padding:4px 8px;font-size:11px;background:#d32f2f;">✕ Quitar</button>' +
+          '</div>';
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  },
+  
+  quitarFoto: function(i) {
+    delete this.fotosActuales[i];
+    document.getElementById('thumb'+i).innerHTML = '';
+    document.getElementById('file'+i).value = '';
   },
   
   guardarAuditoria: function() {
@@ -567,9 +635,22 @@ const app = {
     .then(r => r.json())
     .then(res => {
       if(res.success) {
-        alert('✅ AUDITORÍA GUARDADA\n'+name+'\n'+data.fecha+'\n'+pct+'%\nItems: '+checked+'/'+items.length);
+        // Guardar las fotos en el dispositivo, asociadas a esta auditoría
+        const fotos = this.fotosActuales || {};
+        const numFotos = Object.keys(fotos).length;
+        if(numFotos > 0) {
+          try {
+            const claveFotos = 'fotos:' + this.usuario.nombre + '|' + this.usuario.tienda + '|' + name + '|' + fecha;
+            localStorage.setItem(claveFotos, JSON.stringify(fotos));
+          } catch(err) {
+            alert('⚠️ La auditoría se guardó, pero no se pudieron almacenar las fotos (memoria del dispositivo llena). El reporte se guardó sin fotos.');
+          }
+        }
+        
+        alert('✅ AUDITORÍA GUARDADA\n'+name+'\n'+data.fecha+'\n'+pct+'%\nItems: '+checked+'/'+items.length+(numFotos>0?'\nFotos: '+numFotos:''));
         document.getElementById('selectChecklist').value = '';
         document.getElementById('itemsDiv').innerHTML = '';
+        this.fotosActuales = {};
         const hoy = new Date();
         const f = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
         document.getElementById('fechaAudit').value = f;
