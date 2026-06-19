@@ -336,17 +336,25 @@ const app = {
     tiendas_arr.forEach(t => { html += '<option value="'+t+'">'+t+'</option>'; });
     html += '</select>';
     document.getElementById('filtersDiv').innerHTML = html;
+    
+    // ACTUALIZAR REPORTES TAMBIÉN
+    this.actualizarReportes();
   },
   
   actualizarReportes: function() {
+    console.log('Actualizando reportes...', this.datos.length, 'filas');
     const filtro = document.getElementById('filtroTienda')?.value || "";
     let datos = this.datos.slice();
+    
+    console.log('Datos totales:', datos.length);
     
     if(!this.usuario.sup) {
       datos = datos.filter(a => a.usuario === this.usuario.nombre);
     } else if(filtro) {
       datos = datos.filter(a => a.tienda === filtro);
     }
+    
+    console.log('Datos después de filtrar:', datos.length);
     
     let tabla = '';
     if(this.usuario.sup) {
@@ -356,6 +364,7 @@ const app = {
     }
     
     if(!tabla) tabla = '<tr><td colspan="5" class="loading">Sin reportes</td></tr>';
+    console.log('Tabla HTML:', tabla.substring(0, 100));
     document.getElementById('reportTable').innerHTML = tabla;
   },
   
