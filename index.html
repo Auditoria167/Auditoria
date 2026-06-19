@@ -157,18 +157,22 @@
         <div style="overflow-x: auto;">
           <table>
             <thead>
-              <tr id="reportHeader">
+              <tr>
+                <th>Usuario</th>
+                <th>Tienda</th>
                 <th>Checklist</th>
                 <th>Fecha</th>
+                <th>Items Completados</th>
                 <th>%</th>
+                <th>Observaciones</th>
               </tr>
             </thead>
             <tbody id="reportTable">
-              <tr><td colspan="4" class="loading">⏳ Cargando reportes...</td></tr>
+              <tr><td colspan="7" class="loading">⏳ Cargando reportes...</td></tr>
             </tbody>
           </table>
         </div>
-        <button onclick="app.descargarExcel()" style="margin-top: 20px; width: 100%;">📥 Descargar Excel</button>
+        <button onclick="app.descargarExcel()" style="margin-top: 20px; width: 100%;">📥 Descargar Excel Detallado</button>
       </div>
     </div>
   </div>
@@ -357,13 +361,22 @@ const app = {
     console.log('Datos después de filtrar:', datos.length);
     
     let tabla = '';
-    if(this.usuario.sup) {
-      tabla = datos.map(a => '<tr><td>'+a.usuario+'</td><td>'+a.tienda+'</td><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
-    } else {
-      tabla = datos.map(a => '<tr><td>'+a.checklist+'</td><td>'+a.fecha+'</td><td>'+a.porcentaje+'%</td></tr>').join('');
-    }
+    tabla = datos.map(a => {
+      const checklist = CHECKLISTS[a.checklist] || [];
+      const itemsCompletos = a.itemsCompletados ? a.itemsCompletados.split(',').length : 0;
+      const obs = (a.obs || '').substring(0, 50); // Truncar observaciones
+      return '<tr>' +
+        '<td>'+a.usuario+'</td>' +
+        '<td>'+a.tienda+'</td>' +
+        '<td>'+a.checklist+'</td>' +
+        '<td>'+a.fecha+'</td>' +
+        '<td>'+itemsCompletos+'/'+checklist.length+'</td>' +
+        '<td>'+a.porcentaje+'%</td>' +
+        '<td>'+obs+'</td>' +
+        '</tr>';
+    }).join('');
     
-    if(!tabla) tabla = '<tr><td colspan="5" class="loading">Sin reportes</td></tr>';
+    if(!tabla) tabla = '<tr><td colspan="7" class="loading">Sin reportes</td></tr>';
     console.log('Tabla HTML:', tabla.substring(0, 100));
     document.getElementById('reportTable').innerHTML = tabla;
   },
@@ -393,7 +406,15 @@ const app = {
     if(!name) { alert('❌ Selecciona un checklist'); return; }
     if(!fecha) { alert('❌ Escribe una fecha'); return; }
     
-    const checked = Array.from({length: items.length}).filter((_, i) => document.getElementById('item'+i).checked).length;
+    // Obtener los items completados
+    const itemsCompletos = [];
+    items.forEach((item, i) => {
+      if(document.getElementById('item'+i).checked) {
+        itemsCompletos.push(i);
+      }
+    });
+    
+    const checked = itemsCompletos.length;
     const pct = Math.round((checked / items.length) * 100);
     
     const data = {
@@ -402,6 +423,7 @@ const app = {
       checklist: name,
       fecha: fecha,
       porcentaje: pct,
+      itemsCompletados: itemsCompletos.join(','),
       obs: document.getElementById('obsFinales').value
     };
     
@@ -412,7 +434,7 @@ const app = {
     .then(r => r.json())
     .then(res => {
       if(res.success) {
-        alert('✅ AUDITORÍA GUARDADA\n'+name+'\n'+data.fecha+'\n'+pct+'%');
+        alert('✅ AUDITORÍA GUARDADA\n'+name+'\n'+data.fecha+'\n'+pct+'%\nItems: '+checked+'/'+items.length);
         document.getElementById('selectChecklist').value = '';
         document.getElementById('itemsDiv').innerHTML = '';
         const hoy = new Date();
@@ -445,16 +467,57 @@ const app = {
       datos = datos.filter(a => a.tienda === filtro);
     }
     
-    let csv = 'Usuario,Tienda,Checklist,Fecha,Porcentaje,Observaciones\n';
+    // Generar CSV detallado
+    let csv = 'REPORTE DETALLADO DE AUDITORÍAS DISAGRO\n';
+    csv += 'Generado: ' + new Date().toLocaleString() + '\n\n';
+    csv += 'RESUMEN\n';
+    csv += 'Usuario,Tienda,Checklist,Fecha,Total Items,Items Completados,Porcentaje,Observaciones\n';
+    
+    let totalAuditorias = 0;
+    let sumaProcentajes = 0;
+    
     datos.forEach(a => {
-      csv += '"'+a.usuario+'","'+a.tienda+'","'+a.checklist+'","'+a.fecha+'","'+a.porcentaje+'%","'+a.obs+'"\n';
+      const checklist = CHECKLISTS[a.checklist] || [];
+      const itemsCompletos = a.itemsCompletados ? a.itemsCompletados.split(',').filter(x => x).length : 0;
+      const obs = (a.obs || '').replace(/"/g, '""'); // Escapar comillas
+      
+      csv += '"'+a.usuario+'","'+a.tienda+'","'+a.checklist+'","'+a.fecha+'","'+checklist.length+'","'+itemsCompletos+'","'+a.porcentaje+'%","'+obs+'"\n';
+      
+      totalAuditorias++;
+      sumaProcentajes += parseInt(a.porcentaje || 0);
+    });
+    
+    // Agregar estadísticas finales
+    csv += '\n\nESTADÍSTICAS\n';
+    csv += 'Total Auditorías,' + totalAuditorias + '\n';
+    csv += 'Promedio %,' + (totalAuditorias > 0 ? Math.round(sumaProcentajes / totalAuditorias) : 0) + '%\n';
+    
+    // Agregar detalle de items por auditoría
+    csv += '\n\nDETALLE DE ITEMS COMPLETADOS\n';
+    datos.forEach((a, idx) => {
+      const checklist = CHECKLISTS[a.checklist] || [];
+      const itemsCompletos = a.itemsCompletados ? a.itemsCompletados.split(',').map(x => parseInt(x)) : [];
+      
+      csv += '\n--- Auditoría #' + (idx + 1) + ' ---\n';
+      csv += 'Usuario,' + a.usuario + '\n';
+      csv += 'Tienda,' + a.tienda + '\n';
+      csv += 'Checklist,' + a.checklist + '\n';
+      csv += 'Fecha,' + a.fecha + '\n';
+      csv += 'Porcentaje,' + a.porcentaje + '%\n';
+      csv += 'Observaciones,' + (a.obs || '') + '\n';
+      csv += 'Items Revisados:\n';
+      
+      checklist.forEach((item, i) => {
+        const estado = itemsCompletos.includes(i) ? '✓' : '✗';
+        csv += estado + ',' + item + '\n';
+      });
     });
     
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.href = url;
-    link.download = 'auditoria_'+this.usuario.nombre.replace(/ /g,'_')+'.csv';
+    link.download = 'auditoria_detallada_'+this.usuario.nombre.replace(/ /g,'_')+'_'+new Date().toISOString().split('T')[0]+'.csv';
     link.click();
   }
 };
