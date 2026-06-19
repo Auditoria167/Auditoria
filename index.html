@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DISAGRO - Auditoría</title>
+  <title>DISAGRO - Checklist de Mantenimientos</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; }
@@ -77,7 +77,7 @@
 <div id="appView" style="display: none;">
   <div class="header">
     <div>
-      <h1>DISAGRO Auditoría</h1>
+      <h1>Checklist de Mantenimientos</h1>
       <p style="margin-top: 5px;">Tienda: <strong id="tiendaDisplay">-</strong> <span id="rolBadge"></span></p>
     </div>
     <div class="header-info">
@@ -165,10 +165,11 @@
                 <th>Items Completados</th>
                 <th>%</th>
                 <th>Observaciones</th>
+                <th>Reporte</th>
               </tr>
             </thead>
             <tbody id="reportTable">
-              <tr><td colspan="7" class="loading">⏳ Cargando reportes...</td></tr>
+              <tr><td colspan="8" class="loading">⏳ Cargando reportes...</td></tr>
             </tbody>
           </table>
         </div>
@@ -359,10 +360,13 @@ const app = {
     
     console.log('Datos después de filtrar:', datos.length);
     
+    // Guardar datos filtrados para generar reportes PDF
+    this.datosFiltrados = datos;
+    
     let tabla = '';
-    tabla = datos.map(a => {
+    tabla = datos.map((a, idx) => {
       const checklist = CHECKLISTS[a.checklist] || [];
-      const itemsCompletos = a.itemsCompletados ? a.itemsCompletados.split(',').length : 0;
+      const itemsCompletos = a.itemsCompletados ? a.itemsCompletados.split(',').filter(x => x).length : 0;
       const obs = (a.obs || '').substring(0, 50); // Truncar observaciones
       return '<tr>' +
         '<td>'+a.usuario+'</td>' +
@@ -372,12 +376,75 @@ const app = {
         '<td>'+itemsCompletos+'/'+checklist.length+'</td>' +
         '<td>'+a.porcentaje+'%</td>' +
         '<td>'+obs+'</td>' +
+        '<td><button onclick="app.generarReportePDF('+idx+')" style="padding:6px 12px;font-size:12px;">📄 PDF</button></td>' +
         '</tr>';
     }).join('');
     
-    if(!tabla) tabla = '<tr><td colspan="7" class="loading">Sin reportes</td></tr>';
+    if(!tabla) tabla = '<tr><td colspan="8" class="loading">Sin reportes</td></tr>';
     console.log('Tabla HTML:', tabla.substring(0, 100));
     document.getElementById('reportTable').innerHTML = tabla;
+  },
+  
+  generarReportePDF: function(idx) {
+    const a = this.datosFiltrados[idx];
+    if(!a) { alert('No se encontró la auditoría'); return; }
+    
+    const checklist = CHECKLISTS[a.checklist] || [];
+    const itemsCompletos = a.itemsCompletados ? a.itemsCompletados.split(',').map(x => parseInt(x)) : [];
+    
+    // Construir filas de items
+    let filasItems = '';
+    checklist.forEach((item, i) => {
+      const ok = itemsCompletos.includes(i);
+      const estado = ok ? '✔ Cumple' : '✘ No cumple';
+      const color = ok ? '#2e7d32' : '#d32f2f';
+      const bg = ok ? '#e8f5e9' : '#ffebee';
+      filasItems += '<tr>' +
+        '<td style="padding:8px 12px;border:1px solid #ccc;">'+(i+1)+'</td>' +
+        '<td style="padding:8px 12px;border:1px solid #ccc;">'+item+'</td>' +
+        '<td style="padding:8px 12px;border:1px solid #ccc;text-align:center;background:'+bg+';color:'+color+';font-weight:bold;">'+estado+'</td>' +
+        '</tr>';
+    });
+    
+    const obsTexto = (a.obs && a.obs.trim()) ? a.obs : 'Sin observaciones';
+    
+    const html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reporte - '+a.checklist+'</title>' +
+      '<style>' +
+      'body{font-family:"Segoe UI",Arial,sans-serif;margin:0;padding:30px;color:#333;}' +
+      '.rep-header{background:#2e7d32;color:white;padding:20px 25px;border-radius:8px 8px 0 0;}' +
+      '.rep-header h1{margin:0;font-size:24px;}' +
+      '.rep-header p{margin:5px 0 0 0;font-size:14px;opacity:0.9;}' +
+      '.rep-info{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:20px 25px;background:#f5f5f5;border:1px solid #ddd;border-top:none;}' +
+      '.rep-info div{font-size:14px;}' +
+      '.rep-info strong{color:#2e7d32;}' +
+      '.score-box{text-align:center;padding:15px;margin:20px 25px;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-radius:8px;border-left:4px solid #2e7d32;}' +
+      '.score-box .num{font-size:36px;font-weight:bold;color:#2e7d32;}' +
+      'table{width:calc(100% - 50px);margin:0 25px;border-collapse:collapse;}' +
+      'th{background:#2e7d32;color:white;padding:10px 12px;text-align:left;font-size:13px;border:1px solid #2e7d32;}' +
+      '.obs-box{margin:20px 25px;padding:15px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;font-size:14px;}' +
+      '.firma{margin:50px 25px 20px;display:grid;grid-template-columns:1fr 1fr;gap:40px;}' +
+      '.firma div{border-top:1px solid #333;padding-top:8px;text-align:center;font-size:13px;}' +
+      '.footer{margin:30px 25px 0;font-size:11px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:15px;}' +
+      '@media print{body{padding:0;} button{display:none !important;}}' +
+      '</style></head><body>' +
+      '<div class="rep-header"><h1>🟢 DISAGRO - Reporte de Auditoría</h1><p>'+a.checklist+'</p></div>' +
+      '<div class="rep-info">' +
+      '<div><strong>Auditor:</strong> '+a.usuario+'</div>' +
+      '<div><strong>Tienda/Localidad:</strong> '+a.tienda+'</div>' +
+      '<div><strong>Checklist:</strong> '+a.checklist+'</div>' +
+      '<div><strong>Fecha:</strong> '+a.fecha+'</div>' +
+      '</div>' +
+      '<div class="score-box"><div class="num">'+a.porcentaje+'%</div><div>Cumplimiento ('+itemsCompletos.length+' de '+checklist.length+' puntos)</div></div>' +
+      '<table><thead><tr><th style="width:40px;">#</th><th>Punto Revisado</th><th style="width:130px;text-align:center;">Estado</th></tr></thead><tbody>'+filasItems+'</tbody></table>' +
+      '<div class="obs-box"><strong>📝 Observaciones:</strong><br>'+obsTexto+'</div>' +
+      '<div class="firma"><div>Firma del Auditor</div><div>Firma del Responsable</div></div>' +
+      '<div class="footer">Documento generado el '+new Date().toLocaleString('es-HN')+' · DISAGRO Auditoría</div>' +
+      '<div style="text-align:center;margin:20px;"><button onclick="window.print()" style="padding:12px 25px;background:#2e7d32;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:14px;">🖨️ Imprimir / Guardar como PDF</button></div>' +
+      '</body></html>';
+    
+    const ventana = window.open('', '_blank');
+    ventana.document.write(html);
+    ventana.document.close();
   },
   
   cargarChecklist: function() {
@@ -507,12 +574,14 @@ const app = {
       csv += 'Items Revisados:\n';
       
       checklist.forEach((item, i) => {
-        const estado = itemsCompletos.includes(i) ? '✓' : '✗';
-        csv += estado + ',' + item + '\n';
+        const estado = itemsCompletos.includes(i) ? 'CUMPLE' : 'NO CUMPLE';
+        csv += '"'+estado+'","' + item.replace(/"/g, '""') + '"\n';
       });
     });
     
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    // BOM UTF-8 para que Excel lea correctamente acentos y símbolos (ñ, í, ✓, etc.)
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csv], {type:'text/csv;charset=utf-8;'});
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.href = url;
